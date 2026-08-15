@@ -1,0 +1,3231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Diminishing Bridge — practice</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127183;</text></svg>" />
+<style>
+/* ============================ design tokens ============================ */
+:root {
+  --bg: #0d1117;
+  --bg-raised: #161b22;
+  --bg-input: #0b0f14;
+  --line: #2a313c;
+  --line-soft: #1e242c;
+  --text: #e8edf4;
+  --text-dim: #97a3b4;
+  --text-faint: #6b7686;
+  --accent: #4f9dff;
+  --accent-dim: #1f4f8f;
+  --gold: #e8b923;
+  --good: #3fb950;
+  --bad: #f85149;
+  --felt-a: #175c43;
+  --felt-b: #0d3a2a;
+  --card-face: #fbfaf7;
+  --card-red: #c8262c;
+  --card-black: #16181d;
+  --radius: 12px;
+  --shadow: 0 6px 24px rgba(0, 0, 0, .45);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+button, input { font: inherit; color: inherit; }
+
+.screen { display: none; height: 100%; }
+.screen.active { display: block; }
+
+/* ============================== controls =============================== */
+.btn {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .15s, border-color .15s, transform .05s;
+}
+.btn:hover:not(:disabled) { background: #1e2530; border-color: #3a4351; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.primary { background: var(--accent-dim); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { background: #2a63ad; }
+.btn.ghost { background: transparent; }
+.btn.tiny { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+
+.field { display: block; margin-bottom: 14px; }
+.field span { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+.field input, .code-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  outline: none;
+}
+.field input:focus, .code-input:focus { border-color: var(--accent); }
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-row .btn { flex: 1 1 auto; }
+
+.checkline {
+  display: flex; align-items: center; gap: 9px;
+  margin: 14px 0; font-size: 13px; color: var(--text-dim); cursor: pointer;
+}
+.checkline input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.join-row { display: flex; gap: 10px; }
+.join-row .code-input {
+  flex: 0 1 130px; text-transform: uppercase; letter-spacing: .18em;
+  text-align: center; font-weight: 700;
+}
+
+/* =============================== landing =============================== */
+.landing-wrap {
+  max-width: 640px; margin: 0 auto; padding: 32px 18px 64px;
+  height: 100%; overflow-y: auto;
+}
+.brand { text-align: center; margin-bottom: 30px; }
+.brand h1 {
+  margin: 0; font-size: 38px; letter-spacing: -.02em;
+  background: linear-gradient(180deg, #fff, #9fb6d0);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; margin-bottom: 12px;
+}
+.panel-head h2 { margin: 0; font-size: 17px; }
+.hint { color: var(--text-faint); font-size: 12.5px; margin: 0; }
+
+.room-list { display: flex; flex-direction: column; gap: 8px; }
+.room-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 11px 13px;
+}
+.room-row .rc { font-weight: 700; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.room-row .rn { color: var(--text-faint); font-size: 12.5px; flex: 1; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.room-row .rp { color: var(--text-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+.empty { color: var(--text-faint); font-size: 13px; margin: 4px 0; }
+
+.rules summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+.rules-body p { color: var(--text-dim); font-size: 13.5px; line-height: 1.55; }
+.rules-body strong { color: var(--text); }
+
+.code-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .18em; background: var(--bg-input);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 3px 9px; font-size: 15px; font-weight: 700;
+}
+
+.lobby-players { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.chip {
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 13px; font-size: 13.5px;
+}
+.chip.host { border-color: var(--gold); }
+.lobby-status { color: var(--text-dim); font-size: 14px; margin: 12px 0; }
+
+/* ============================= game layout ============================= */
+.game-grid { display: flex; height: 100%; }
+
+.sidebar {
+  width: 268px; flex: 0 0 268px;
+  border-right: 1px solid var(--line-soft);
+  background: var(--bg-raised);
+  padding: 14px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.side-head { display: flex; justify-content: space-between; align-items: center; }
+
+.round-info { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+.round-info .big { color: var(--text); font-size: 15px; font-weight: 700; display: block; }
+.round-info .trump-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 8px; padding: 4px 9px; margin-top: 6px; font-weight: 700; color: var(--text);
+}
+.round-info .trump-tag.none { border-color: var(--gold); color: var(--gold); }
+.round-info .ladder { font-variant-numeric: tabular-nums; letter-spacing: .06em; font-size: 12px; }
+.round-info .ladder b { color: var(--accent); }
+
+.scoreboard { border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.scoreboard table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.scoreboard th {
+  text-align: left; color: var(--text-faint); font-weight: 600;
+  padding: 3px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+}
+.scoreboard td { padding: 4px; border-top: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.scoreboard td.num { text-align: right; }
+.scoreboard tr.me td { color: var(--accent); font-weight: 700; }
+.scoreboard .lead td:first-child::after { content: " ♛"; color: var(--gold); }
+
+.log {
+  border-top: 1px solid var(--line-soft); padding-top: 10px;
+  font-size: 12px; color: var(--text-faint); line-height: 1.5;
+  display: flex; flex-direction: column-reverse; gap: 5px;
+  max-height: 190px; overflow-y: auto;
+}
+
+.side-tools { display: flex; gap: 6px; }
+
+/* ================================ chat ================================= */
+.chat {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: auto;
+}
+.chat-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); font-weight: 600;
+}
+.chat.collapsed .chat-log, .chat.collapsed .chat-form { display: none; }
+
+.chat-log {
+  height: 168px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+  font-size: 12.5px; line-height: 1.45;
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 9px; padding: 9px;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.chat-msg .who { font-weight: 700; color: var(--accent); margin-right: 5px; }
+.chat-msg.mine .who { color: var(--gold); }
+.chat-msg .body { color: var(--text); white-space: pre-wrap; }
+.chat-msg.system { color: var(--text-faint); font-style: italic; }
+.chat-empty { color: var(--text-faint); font-size: 12px; }
+
+.chat-form { display: flex; gap: 6px; }
+.chat-form input {
+  flex: 1; min-width: 0; background: var(--bg-input);
+  border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px;
+  font-size: 13px; outline: none;
+}
+.chat-form input:focus { border-color: var(--accent); }
+
+.chat-badge {
+  display: inline-block; min-width: 16px; padding: 0 5px;
+  background: var(--accent); color: #fff; border-radius: 999px;
+  font-size: 10px; font-weight: 700; text-align: center; margin-left: 6px;
+}
+
+/* ============================ leaderboard ============================== */
+.leaderboard table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.leaderboard th {
+  text-align: left; color: var(--text-faint); font-weight: 600; padding: 4px 5px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em;
+}
+.leaderboard td { padding: 6px 5px; border-top: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.leaderboard td.num { text-align: right; }
+.leaderboard tr.me td { color: var(--accent); font-weight: 700; }
+.leaderboard .rankcell { color: var(--text-faint); width: 26px; }
+.leaderboard tr:nth-child(1) .rankcell { color: var(--gold); }
+
+.my-stats {
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 11px 13px; margin-bottom: 12px;
+  font-size: 12.5px; color: var(--text-dim); display: none;
+}
+.my-stats.show { display: block; }
+.my-stats b { color: var(--text); }
+.my-stats .row { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 5px; }
+
+.career-box {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft);
+  font-size: 12.5px; color: var(--text-dim); display: none;
+}
+.career-box.show { display: block; }
+.career-box b { color: var(--text); }
+
+.table-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+
+/* =============================== the felt ============================== */
+.table-felt {
+  flex: 1; position: relative; margin: 16px; border-radius: 50% / 26%;
+  background:
+    radial-gradient(ellipse at 50% 42%, var(--felt-a) 0%, var(--felt-b) 72%, #08251b 100%);
+  border: 9px solid #4a3218;
+  box-shadow: inset 0 0 70px rgba(0,0,0,.55), var(--shadow);
+  min-height: 340px;
+}
+
+.table-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; pointer-events: none; padding: 0 12%;
+}
+
+/* Trump sits off to the side like a turned-up card beside the deck, leaving
+   the middle of the table free for the trick. */
+.trump-corner {
+  position: absolute; left: 3.5%; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  z-index: 3;
+}
+.trump-corner .tlabel {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em;
+  color: rgba(255,255,255,.6); text-align: center; line-height: 1.4;
+}
+.trump-corner .tname { font-size: 12px; font-weight: 700; color: #fff; letter-spacing: .02em; }
+.trump-corner .tname.none { color: var(--gold); }
+
+/* Each played card is drawn just inside its owner's seat, so who played what
+   is obvious at a glance instead of being a row in the middle. */
+.trick-layer { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.trick-slot {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  animation: dealIn .22s ease-out;
+}
+@keyframes dealIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.trick-slot .order {
+  position: absolute; top: -7px; left: -7px;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: #0e1a16; border: 1px solid rgba(255,255,255,.3);
+  color: rgba(255,255,255,.8); font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; z-index: 2;
+}
+.trick-slot .who {
+  font-size: 10px; color: rgba(255,255,255,.72); max-width: 66px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.trick-slot.led .order { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
+.trick-slot.winner { animation: takeIt .45s ease-out; z-index: 4; }
+.trick-slot.winner .who { color: var(--gold); font-weight: 700; }
+@keyframes takeIt {
+  0%   { transform: translate(-50%, -50%) scale(1); }
+  55%  { transform: translate(-50%, -50%) scale(1.28); }
+  100% { transform: translate(-50%, -50%) scale(1.14); }
+}
+.trick-slot.winner .card { box-shadow: 0 0 0 3px var(--gold), 0 6px 18px rgba(0,0,0,.55); }
+/* Dimmed, but still legible — you should be able to see what everyone played
+   while the winner is highlighted. */
+.trick-slot.faded { opacity: .55; transition: opacity .3s; }
+
+/* The card currently on pace to take the trick, while it is still in play.
+   Green so it never reads as the settled gold "won" state. */
+.trick-slot.leading .card {
+  box-shadow: 0 0 0 3px var(--good), 0 4px 14px rgba(0,0,0,.5);
+}
+.trick-slot.leading::after {
+  content: "winning";
+  position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+  font-size: 8.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: #96e6a8; background: #123a22; border: 1px solid var(--good);
+  border-radius: 999px; padding: 1px 6px; white-space: nowrap;
+}
+.trick-slot.winner::after { content: none; }
+
+/* Shuffle-and-deal flourish between rounds */
+.deal-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.table-felt.dealing .center-msg { opacity: 0; transition: opacity .15s; }
+.deal-card {
+  position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 62px; border-radius: 6px; margin: -31px 0 0 -22px;
+  background: repeating-linear-gradient(45deg, #1d3f6e, #1d3f6e 5px, #16325a 5px, #16325a 10px);
+  border: 1px solid #0e2038; box-shadow: 0 3px 10px rgba(0,0,0,.5);
+  animation: dealOut .55s cubic-bezier(.3,.8,.4,1) forwards;
+}
+@keyframes dealOut {
+  0%   { transform: translate(0,0) rotate(0deg) scale(.9); opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(.62); opacity: 0; }
+}
+.deal-stack {
+  position: absolute; left: 50%; top: 50%; margin: -31px 0 0 -22px;
+  width: 44px; height: 62px; border-radius: 6px;
+  background: repeating-linear-gradient(45deg, #1d3f6e, #1d3f6e 5px, #16325a 5px, #16325a 10px);
+  border: 1px solid #0e2038; box-shadow: 0 4px 14px rgba(0,0,0,.55);
+  animation: shuffleWobble .5s ease-in-out 2;
+}
+@keyframes shuffleWobble {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  25%      { transform: rotate(-7deg) translateX(-5px); }
+  75%      { transform: rotate(7deg) translateX(5px); }
+}
+
+/* ============================ bid reveal =============================== */
+.overlay.reveal { background: rgba(4, 8, 6, .8); }
+.reveal-card {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: 18px; padding: 26px 30px; max-width: 620px; width: 100%;
+  box-shadow: var(--shadow); text-align: center;
+  animation: revealIn .35s cubic-bezier(.2,.9,.3,1.1);
+}
+@keyframes revealIn {
+  from { opacity: 0; transform: translateY(14px) scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+.reveal-title {
+  font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 700; margin-bottom: 18px;
+}
+.reveal-grid {
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px;
+}
+.reveal-player {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 74px; padding: 10px 8px 8px;
+  background: var(--bg-input); border: 1px solid var(--line-soft); border-radius: 12px;
+  animation: flipBid .34s cubic-bezier(.2,.9,.3,1.15) both;
+}
+@keyframes flipBid {
+  from { opacity: 0; transform: rotateX(-85deg) translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.reveal-player .bignum {
+  font-size: 34px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.reveal-player .who {
+  font-size: 11.5px; color: var(--text-dim); max-width: 84px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reveal-player.zero .bignum { color: var(--text-faint); }
+.reveal-player.bold .bignum { color: var(--gold); }
+.reveal-player.mine { border-color: var(--accent); background: #10203a; }
+.reveal-player.mine .who { color: var(--accent); font-weight: 700; }
+
+.reveal-total {
+  font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}
+.reveal-total .vs { color: var(--text-faint); font-weight: 600; font-size: 17px; margin: 0 8px; }
+.reveal-verdict { font-size: 14.5px; font-weight: 600; }
+.reveal-verdict.over { color: var(--bad); }
+.reveal-verdict.under { color: var(--accent); }
+.reveal-verdict.even { color: var(--good); }
+.reveal-verdict .why {
+  display: block; font-size: 12.5px; font-weight: 500;
+  color: var(--text-dim); margin-top: 5px;
+}
+
+/* The big bid number parked next to each name once bidding is done. */
+.seat .bidnum {
+  position: absolute; right: -6px; top: -8px;
+  min-width: 26px; height: 26px; padding: 0 5px;
+  border-radius: 8px; background: #0e1a16; border: 1.5px solid rgba(255,255,255,.28);
+  color: #fff; font-size: 15px; font-weight: 800; line-height: 24px;
+  font-variant-numeric: tabular-nums; z-index: 4;
+}
+.seat .bidnum.zero { color: var(--text-faint); }
+.seat.bid-hit .bidnum { border-color: var(--good); color: #96e6a8; }
+.seat.bid-over .bidnum { border-color: var(--bad); color: #ff9d97; }
+
+.center-msg {
+  font-size: 14px; color: rgba(255,255,255,.85); text-align: center;
+  min-height: 20px; text-shadow: 0 1px 4px rgba(0,0,0,.8); font-weight: 600;
+  background: rgba(6, 20, 15, .55); border-radius: 10px; padding: 6px 14px;
+  backdrop-filter: blur(2px);
+}
+.center-msg.big {
+  font-size: 19px; color: var(--gold);
+  animation: popMsg .4s ease-out;
+}
+@keyframes popMsg {
+  from { opacity: 0; transform: scale(.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.center-msg .sub { display: block; font-size: 12px; font-weight: 500; color: rgba(255,255,255,.75); margin-top: 3px; }
+
+/* =============================== seats ================================= */
+.seat {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 126px; text-align: center; pointer-events: none;
+}
+.seat .avatar {
+  background: rgba(8, 14, 12, .82);
+  border: 1.5px solid rgba(255,255,255,.16);
+  border-radius: 10px; padding: 6px 8px; backdrop-filter: blur(3px);
+}
+.seat.active .avatar {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,157,255,.28), 0 0 22px rgba(79,157,255,.35);
+  animation: waiting 1.6s ease-in-out infinite;
+}
+@keyframes waiting {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(79,157,255,.28), 0 0 18px rgba(79,157,255,.3); }
+  50%      { box-shadow: 0 0 0 5px rgba(79,157,255,.16), 0 0 30px rgba(79,157,255,.5); }
+}
+.seat.active.is-me .avatar {
+  border-color: var(--good);
+  animation: waitingMe 1.2s ease-in-out infinite;
+}
+@keyframes waitingMe {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(63,185,80,.35), 0 0 20px rgba(63,185,80,.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(63,185,80,.18), 0 0 34px rgba(63,185,80,.65); }
+}
+.seat.winner .avatar {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(232,185,35,.35), 0 0 26px rgba(232,185,35,.45);
+}
+.seat.me .avatar { border-color: rgba(255,255,255,.42); }
+.seat.offline .avatar { opacity: .5; }
+
+/* Badges that answer "who leads?" and "who just took it?" without reading text */
+.seat .badge {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: -11px; white-space: nowrap;
+  font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; z-index: 3;
+}
+.seat .badge.lead { background: #123a5e; color: #9ccbff; border: 1px solid var(--accent); }
+.seat .badge.took { background: #3d2f08; color: #ffdf7a; border: 1px solid var(--gold); }
+.seat .badge.turn { background: #123a22; color: #96e6a8; border: 1px solid var(--good); }
+
+.seat .tricks-pips {
+  display: flex; gap: 2px; justify-content: center; margin-top: 4px; flex-wrap: wrap;
+}
+.seat .pip {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.25);
+}
+.seat .pip.won { background: var(--gold); border-color: var(--gold); }
+.seat .pip.over { background: var(--bad); border-color: var(--bad); }
+
+.seat .nm {
+  font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.seat .meta {
+  font-size: 11px; color: var(--text-dim); margin-top: 2px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.seat .meta .hit { color: var(--good); font-weight: 700; }
+.seat .meta .over { color: var(--gold); font-weight: 700; }
+.seat .meta .under { color: var(--text-dim); }
+.seat .meta .pts { color: var(--text-faint); font-size: 10px; margin-top: 1px; }
+.seat .bot-tag {
+  display: inline-block; font-size: 9px; letter-spacing: .06em;
+  background: #3a2a12; color: var(--gold); border-radius: 4px;
+  padding: 1px 4px; margin-left: 3px; vertical-align: 1px;
+}
+.seat .bidpill {
+  display: inline-block; margin-top: 3px; font-size: 10.5px;
+  background: rgba(255,255,255,.12); border-radius: 999px; padding: 1px 7px;
+}
+.seat .blindcards { display: flex; gap: 2px; justify-content: center; margin-top: 4px; }
+
+/* =============================== cards ================================= */
+.card {
+  width: 54px; height: 76px; border-radius: 7px;
+  background: var(--card-face); color: var(--card-black);
+  border: 1px solid #cfcbc2;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 4px 5px; font-weight: 700; line-height: 1;
+  user-select: none; flex: 0 0 auto; position: relative;
+}
+.card.red { color: var(--card-red); }
+.card .r { font-size: 15px; }
+.card .s { font-size: 17px; align-self: flex-end; }
+.card.sm { width: 38px; height: 54px; padding: 3px 4px; border-radius: 5px; }
+.card.sm .r { font-size: 11px; }
+.card.sm .s { font-size: 12px; }
+.card.xs { width: 26px; height: 37px; padding: 2px 3px; border-radius: 4px; }
+.card.xs .r { font-size: 8.5px; }
+.card.xs .s { font-size: 9px; }
+
+.card.back {
+  background: repeating-linear-gradient(45deg, #1d3f6e, #1d3f6e 5px, #16325a 5px, #16325a 10px);
+  border-color: #0e2038;
+}
+.card.back .r, .card.back .s { display: none; }
+
+.card.trumpcard { box-shadow: 0 0 0 2px var(--gold), 0 2px 8px rgba(0,0,0,.5); }
+.card.wontrick { box-shadow: 0 0 0 2px var(--gold), 0 4px 12px rgba(0,0,0,.5); }
+
+.trick-card { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.trick-card .who {
+  font-size: 10px; color: rgba(255,255,255,.72); max-width: 56px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ============================== your hand ============================== */
+.hand-dock {
+  border-top: 1px solid var(--line-soft); background: var(--bg-raised);
+  padding: 10px 16px 14px; flex: 0 0 auto;
+}
+/* Mobile-only status line; the felt shows it instead on wider screens. */
+.status-bar { display: none; }
+
+/* Trump repeated next to the hand, where you are actually looking when you
+   choose a card. */
+.trump-chip {
+  display: none; align-items: center; gap: 6px; margin-left: 12px;
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 700;
+}
+.trump-chip.show { display: inline-flex; }
+.trump-chip .lab {
+  font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 600;
+}
+.trump-chip .suit { font-size: 16px; line-height: 1; }
+.trump-chip.red .suit, .trump-chip.red .val { color: var(--card-red); }
+.trump-chip.none { border-color: var(--gold); color: var(--gold); }
+.trump-chip.none .lab { color: var(--gold); }
+
+/* Inline bidding for the blind round — keeps the felt clear */
+.bid-dock { display: none; margin-bottom: 12px; }
+.bid-dock.show { display: block; }
+.bid-dock .bd-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.bid-dock .bd-sub { font-size: 12.5px; color: var(--text-dim); margin-bottom: 10px; }
+.bid-dock .bid-buttons { justify-content: flex-start; margin: 0; }
+
+.last-trick { border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.last-trick .lt-head {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); font-weight: 600; margin-bottom: 6px;
+}
+.last-trick .lt-cards { display: flex; gap: 3px; flex-wrap: wrap; }
+.last-trick .lt-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.last-trick .lt-item .nm {
+  font-size: 8.5px; color: var(--text-faint); max-width: 30px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.last-trick .lt-item.won .nm { color: var(--gold); font-weight: 700; }
+.last-trick .lt-item.won .card { box-shadow: 0 0 0 2px var(--gold); }
+
+.hand-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.hand-label { font-size: 12.5px; color: var(--text-dim); font-weight: 600; }
+.hand-tools { display: flex; gap: 7px; }
+
+.hand { display: flex; gap: 7px; flex-wrap: wrap; min-height: 80px; align-items: center; }
+.hand .card { cursor: grab; transition: transform .12s, box-shadow .12s, opacity .12s; }
+.hand .card.playable:hover { transform: translateY(-9px); box-shadow: 0 8px 18px rgba(0,0,0,.5); }
+.hand .card.illegal { opacity: .34; cursor: not-allowed; }
+.hand .card.dragging { opacity: .35; }
+.hand .card.drop-left { box-shadow: -3px 0 0 var(--accent); }
+.hand .card.drop-right { box-shadow: 3px 0 0 var(--accent); }
+.hand-hint { font-size: 11.5px; color: var(--text-faint); margin: 8px 0 0; }
+
+/* ============================== overlays =============================== */
+.overlay {
+  position: fixed; inset: 0; background: rgba(5, 8, 12, .72);
+  backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; padding: 20px; z-index: 40;
+}
+.overlay.show { display: flex; }
+
+/* Confined to the felt so the hand dock underneath stays visible and usable
+   — you must be able to look at your cards while choosing a bid. */
+.overlay.felt-only {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(5, 8, 12, .58);
+  padding: 12px;
+  overflow-y: auto;
+}
+.overlay.felt-only .bid-card { max-width: 400px; padding: 18px 20px; }
+.overlay.felt-only .bid-card h2 { font-size: 18px; }
+.bid-card {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: 16px; padding: 24px; max-width: 420px; width: 100%;
+  box-shadow: var(--shadow); text-align: center;
+}
+.bid-card.wide { max-width: 560px; text-align: left; }
+.bid-card h2 { margin: 0 0 6px; font-size: 20px; }
+.bid-buttons {
+  display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; margin: 18px 0 6px;
+}
+.bid-buttons .btn { min-width: 52px; flex: 0 0 auto; }
+.bid-waiting { color: var(--text-dim); font-size: 13px; margin: 10px 0 0; }
+
+.result-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0; }
+.result-table th {
+  text-align: left; color: var(--text-faint); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .05em; padding: 4px 6px;
+}
+.result-table td { padding: 6px; border-top: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.result-table td.num { text-align: right; }
+.result-table .gain-hit { color: var(--good); font-weight: 700; }
+.result-table .gain-over { color: var(--gold); }
+.result-table .gain-zero { color: var(--bad); }
+
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+  background: #2b1416; border: 1px solid var(--bad); color: #ffd9d6;
+  padding: 10px 18px; border-radius: 10px; font-size: 13.5px;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 60;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.timer-ring {
+  display: inline-block; font-variant-numeric: tabular-nums;
+  font-weight: 700; color: var(--accent);
+}
+.timer-ring.urgent { color: var(--bad); }
+
+/* =============================== mobile ================================ */
+@media (max-width: 860px) {
+  .game-grid { flex-direction: column; }
+  .sidebar {
+    width: 100%; flex: 0 0 auto; border-right: none;
+    border-bottom: 1px solid var(--line-soft); max-height: 34vh;
+  }
+  .sidebar .log { display: none; }
+  .scoreboard { display: none; }
+  .scoreboard.open { display: block; }
+  .chat { margin-top: 10px; }
+  .chat-log { height: 96px; }
+  .table-felt { margin: 8px; border-radius: 50% / 22%; min-height: 360px; border-width: 5px; }
+
+  /* Ten seats around a phone-width oval only fit if the seats get genuinely
+     small. Names stay, decoration goes. */
+  .seat { width: 72px; }
+  .seat .avatar { padding: 4px 5px; border-radius: 8px; }
+  .seat .nm { font-size: 9.5px; }
+  .seat .meta { font-size: 8.5px; }
+  .seat .meta .pts { font-size: 8px; }
+  .seat .bot-tag { display: none; }
+  .seat .badge { font-size: 7.5px; padding: 1px 5px; top: -9px; }
+  .seat .pip { width: 5px; height: 5px; }
+  .seat .blindcards .card { width: 26px; height: 37px; padding: 2px 3px; }
+  .seat .blindcards .card .r { font-size: 8.5px; }
+  .seat .blindcards .card .s { font-size: 9px; }
+
+  /* Trump already has a prominent home in the sidebar on small screens, and
+     on the felt it collides with the left-hand seats. */
+  .trump-corner { display: none; }
+  .card { width: 44px; height: 62px; }
+  .card .r { font-size: 12px; }
+  .card .s { font-size: 13px; }
+  .card.sm { width: 30px; height: 43px; }
+  .hand { gap: 5px; }
+  .brand h1 { font-size: 30px; }
+
+  /* Ten played cards around a phone-sized oval need to shrink or they collide. */
+  .trick-slot .card { width: 30px; height: 43px; padding: 3px 4px; border-radius: 5px; }
+  .trick-slot .card .r { font-size: 11px; }
+  .trick-slot .card .s { font-size: 12px; }
+  .trick-slot .who { display: none; }
+  .trick-slot .order { width: 14px; height: 14px; font-size: 8px; top: -5px; left: -5px; }
+  .trump-corner { left: 1.5%; }
+  .trump-corner .tlabel, .trump-corner .tname { font-size: 8.5px; }
+  /* The status moves out of the felt so it can never cover a played card. */
+  .table-center { display: none; }
+  .status-bar {
+    display: block; text-align: center; font-weight: 600; font-size: 13px;
+    color: var(--text); background: var(--bg-input);
+    border: 1px solid var(--line-soft); border-radius: 9px;
+    padding: 7px 10px; margin-bottom: 10px;
+  }
+  .status-bar.big { color: var(--gold); font-size: 15px; }
+  .status-bar .sub {
+    display: block; font-size: 11.5px; font-weight: 500;
+    color: var(--text-dim); margin-top: 2px;
+  }
+}
+
+/* practice-only tweaks */
+#practicePanel select {
+  width: 100%;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font: inherit;
+  text-align: left;
+  letter-spacing: normal;
+  text-transform: none;
+}
+#practicePanel select:focus { outline: none; border-color: var(--accent); }
+#practicePanel select option { color: var(--text); background: #11161d; }
+.practice-badge {
+  display: inline-block; font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; background: #3a2a12; color: var(--gold);
+  border-radius: 5px; padding: 2px 7px; margin-left: 8px; vertical-align: 3px;
+}
+#sidebar .chat { display: none; }
+.online-only { display: none !important; }
+</style>
+</head>
+<body>
+
+
+<!-- ============================= LANDING ============================= -->
+<section id="screen-landing" class="screen active">
+  <div class="landing-wrap">
+    <header class="brand">
+      <h1>Diminishing Bridge</h1>
+    </header>
+
+    <div class="panel" id="practicePanel">
+      <div class="panel-head">
+        <h2>Practice against bots</h2>
+        <span class="hint">nothing leaves this page</span>
+      </div>
+      <label class="field">
+        <span>Your name</span>
+        <input id="pName" maxlength="14" placeholder="Ben" />
+      </label>
+      <label class="field">
+        <span>Players at the table (you plus bots)</span>
+        <select id="pPlayers">
+          <option value="5">5 players — 10 cards to start</option>
+          <option value="6">6 players — 8 cards to start</option>
+          <option value="7">7 players — 7 cards to start</option>
+          <option value="8">8 players — 6 cards to start</option>
+          <option value="9">9 players — 5 cards to start</option>
+          <option value="10" selected>10 players — 5 cards to start</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Length</span>
+        <select id="pLength">
+          <option value="quick" selected>Quick test — 3·2·1·2·3, five rounds</option>
+          <option value="full">Full ladder — the real thing</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Table speed — how fast the bots play</span>
+        <select id="pSpeed">
+          <option value="slow" selected>Relaxed — easy to follow</option>
+          <option value="normal">Normal — matches a real table</option>
+          <option value="fast">Fast — for testing</option>
+        </select>
+      </label>
+      <label class="checkline">
+        <input type="checkbox" id="pRelaxed" checked />
+        <span>Give me longer to decide (90s to bid, 60s to play) — untick for the real 30s/20s</span>
+      </label>
+      <div class="btn-row">
+        <button id="pStart" class="btn primary">Deal me in</button>
+      </div>
+      <p class="hint" style="margin-top:12px">
+        The bots follow suit, chase their bids and duck when they are already
+        over. They are competent, not brilliant.
+      </p>
+    </div>
+
+    <div class="panel online-only">
+      <label class="field">
+        <span>Your name</span>
+        <input id="nameInput" maxlength="14" placeholder="e.g. Ben" autocomplete="nickname" />
+      </label>
+
+      <div class="btn-row">
+        <button id="btnQuickPlay" class="btn primary">Quick Play</button>
+        <button id="btnCreate" class="btn">Create table</button>
+      </div>
+
+      <label class="checkline">
+        <input type="checkbox" id="privateCheck" />
+        <span>Make my table private (code only, hidden from the list)</span>
+      </label>
+
+      <div class="join-row">
+        <input id="codeInput" class="code-input" maxlength="6" placeholder="CODE" autocapitalize="characters" />
+        <button id="btnJoin" class="btn">Join by code</button>
+      </div>
+    </div>
+
+    <div class="panel online-only">
+      <div class="panel-head">
+        <h2>Open tables</h2>
+        <span class="hint">5–10 players · refreshes automatically</span>
+      </div>
+      <div id="roomList" class="room-list"><p class="empty">Looking for tables…</p></div>
+    </div>
+
+    <div class="panel online-only">
+      <div class="panel-head">
+        <h2>All-time standings</h2>
+        <button id="btnRefreshBoard" class="btn tiny">Refresh</button>
+      </div>
+      <div id="myStats" class="my-stats"></div>
+      <div id="leaderboard" class="leaderboard"><p class="empty">No games recorded yet.</p></div>
+      <p class="hint" style="margin-top:10px">Your record is tied to this browser, not your
+        nickname, so nobody can take it by copying your name.</p>
+    </div>
+
+    <details class="panel rules">
+      <summary>How to play</summary>
+      <div class="rules-body">
+        <p><strong>The ladder.</strong> Hands shrink one card per round down to a single card, then grow back to where they started. With 10 players that is 5·4·3·2·1·2·3·4·5.</p>
+        <p><strong>Trump.</strong> After the deal, one card is flipped. Its suit is trump for the round. If that suit was already trump last round, the round is played with <em>no trump</em>.</p>
+        <p><strong>Bidding.</strong> Everyone secretly bids how many tricks they will take, then all bids are revealed at once. Nobody sees a bid before committing their own.</p>
+        <p><strong>Following suit.</strong> You must play the led suit if you hold it. Only when void may you play anything else. Any trump beats any non-trump — the 2 of trump beats the ace of the led suit.</p>
+        <p><strong>Scoring.</strong> Hit your bid exactly for 10 + your bid. Go over and you score 1 per trick taken. Fall short and you score nothing.</p>
+        <p><strong>The blind round.</strong> On the single-card round you can see everyone else's card but not your own.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================== LOBBY ============================== -->
+<section id="screen-lobby" class="screen">
+  <div class="landing-wrap">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Table <span id="lobbyCode" class="code-chip"></span></h2>
+        <button id="btnCopy" class="btn tiny">Copy invite</button>
+      </div>
+      <p id="lobbyPrivacy" class="hint"></p>
+      <div id="lobbyPlayers" class="lobby-players"></div>
+      <p id="lobbyStatus" class="lobby-status"></p>
+      <div class="btn-row">
+        <button id="btnStart" class="btn primary" disabled>Start game</button>
+        <button id="btnLeave" class="btn ghost">Leave</button>
+      </div>
+      <p id="lobbyPreview" class="hint"></p>
+    </div>
+
+    <div class="panel">
+      <div class="chat" id="lobbyChat">
+        <div class="chat-head"><span>Table chat</span></div>
+        <div id="chatLog2" class="chat-log"></div>
+        <form id="chatForm2" class="chat-form" autocomplete="off">
+          <input id="chatInput2" maxlength="400" placeholder="Say something…" />
+          <button class="btn tiny" type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== GAME =============================== -->
+<section id="screen-game" class="screen">
+  <div class="game-grid">
+
+    <aside class="sidebar" id="sidebar">
+      <div class="side-head">
+        <span class="code-chip" id="gameCode"></span>
+        <div class="side-tools">
+          <button id="btnSound" class="btn tiny" title="Toggle sound">🔊</button>
+          <button id="btnScoreToggle" class="btn tiny">Scores</button>
+        </div>
+      </div>
+      <div id="roundInfo" class="round-info"></div>
+      <div id="scoreboard" class="scoreboard"></div>
+      <div id="lastTrick" class="last-trick"></div>
+      <div id="logBox" class="log"></div>
+
+      <div class="chat">
+        <div class="chat-head">
+          <span>Table chat</span>
+          <button id="btnChatToggle" class="btn tiny">Hide</button>
+        </div>
+        <div id="chatLog" class="chat-log"></div>
+        <form id="chatForm" class="chat-form" autocomplete="off">
+          <input id="chatInput" maxlength="400" placeholder="Say something…" />
+          <button class="btn tiny" type="submit">Send</button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="table-area">
+      <div class="table-felt" id="felt">
+        <div class="trump-corner" id="trumpBlock"></div>
+        <div class="deal-layer" id="dealLayer"></div>
+        <div class="trick-layer" id="trickLayer"></div>
+        <div class="table-center" id="tableCenter">
+          <div class="center-msg" id="centerMsg"></div>
+        </div>
+        <div id="seats"></div>
+
+        <!-- Bidding sits over the felt only, never over your hand: you have to
+             be able to see your cards while deciding what to bid. -->
+        <div id="bidOverlay" class="overlay felt-only">
+          <div class="bid-card">
+            <h2>Place your bid</h2>
+            <p id="bidSub" class="hint"></p>
+            <div id="bidButtons" class="bid-buttons"></div>
+            <p id="bidWaiting" class="bid-waiting"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="hand-dock">
+        <!-- On phones the felt is too small to hold the status text without it
+             landing on the played cards, so it moves down here instead. -->
+        <div class="status-bar" id="statusBar"></div>
+        <div class="hand-bar">
+          <div class="hand-label" id="handLabel">Your hand</div>
+          <div class="trump-chip" id="trumpChip"></div>
+          <div class="hand-tools">
+            <button id="btnSortSuit" class="btn tiny">Sort by suit</button>
+            <button id="btnSortRank" class="btn tiny">Sort by rank</button>
+          </div>
+        </div>
+        <!-- On the blind round the bid controls live down here instead of over
+             the felt, so the other players' face-up cards stay visible while
+             you decide. -->
+        <div id="bidDock" class="bid-dock"></div>
+        <div id="hand" class="hand"></div>
+        <p class="hand-hint" id="handHint">Drag cards to reorder them.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- the bids flipping over together -->
+  <div id="revealOverlay" class="overlay reveal">
+    <div class="reveal-card">
+      <div class="reveal-title">Bids are in</div>
+      <div id="revealGrid" class="reveal-grid"></div>
+      <div id="revealTotal" class="reveal-total"></div>
+      <div id="revealVerdict" class="reveal-verdict"></div>
+    </div>
+  </div>
+
+  <!-- round / game results overlay -->
+  <div id="resultOverlay" class="overlay">
+    <div class="bid-card wide">
+      <h2 id="resultTitle"></h2>
+      <div id="resultBody"></div>
+      <p id="resultSub" class="hint"></p>
+      <div id="careerBox" class="career-box"></div>
+      <div class="btn-row" id="endButtons" style="display:none; margin-top:14px">
+        <button id="btnRematch" class="btn primary">Play again</button>
+        <button id="btnBackToLobby" class="btn ghost">Back to start</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</section>
+
+
+
+<script>
+/* ---- process shim: the game module reads env vars for its clocks ---- */
+var process = { env: {} };
+</script>
+<script>
+/* =================== engine.js (verbatim) =================== */
+/**
+ * engine.js — pure game rules. No I/O, no state mutation of rooms.
+ * Everything here is deterministic and unit-tested in test/engine.test.js
+ */
+
+const SUITS = ['S', 'H', 'D', 'C'];
+const SUIT_NAMES = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
+const SUIT_SYMBOL = { S: '♠', H: '♥', D: '♦', C: '♣' };
+const RANKS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+const RANK_LABEL = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+
+const MIN_PLAYERS = 5;
+const MAX_PLAYERS = 10;
+
+function rankLabel(rank) {
+  return RANK_LABEL[rank] || String(rank);
+}
+
+function cardId(rank, suit) {
+  return `${rank}${suit}`;
+}
+
+function parseCard(id) {
+  const suit = id.slice(-1);
+  const rank = parseInt(id.slice(0, -1), 10);
+  return { rank, suit, id };
+}
+
+function cardName(card) {
+  return `${rankLabel(card.rank)}${SUIT_SYMBOL[card.suit]}`;
+}
+
+/** Standard 52-card deck. No jokers, no duplicates. */
+function makeDeck() {
+  const deck = [];
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({ rank, suit, id: cardId(rank, suit) });
+    }
+  }
+  return deck;
+}
+
+/** Fisher-Yates. rnd is injectable so tests can be deterministic. */
+function shuffle(cards, rnd = Math.random) {
+  const a = cards.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Opening hand size = floor(51 / players).
+ * 51 rather than 52 because exactly one card must remain undealt to be
+ * flipped as the trump card.
+ *   5p -> 10, 6p -> 8, 7p -> 7, 8p -> 6, 9p -> 5, 10p -> 5
+ */
+function maxHandSize(numPlayers) {
+  return Math.floor(51 / numPlayers);
+}
+
+/**
+ * The round ladder: descend from max to 1, then ascend back to max.
+ * e.g. 10 players -> [5,4,3,2,1,2,3,4,5]
+ */
+function buildSchedule(numPlayers) {
+  const max = maxHandSize(numPlayers);
+  const out = [];
+  for (let n = max; n >= 1; n--) out.push(n);
+  for (let n = 2; n <= max; n++) out.push(n);
+  return out;
+}
+
+/**
+ * Trump for a round.
+ * If the freshly flipped suit equals the previous round's ACTIVE trump suit,
+ * this round is no-trump. A no-trump round clears the active trump, so the
+ * same suit may immediately become trump again on the following round.
+ * A repeated suit therefore alternates: Hearts, none, Hearts, none...
+ *
+ * @param flippedSuit suit of the card turned up this round
+ * @param prevActiveTrump the previous round's active trump suit, or null
+ * @returns the active trump suit for this round, or null for no-trump
+ */
+function resolveTrump(flippedSuit, prevActiveTrump) {
+  if (prevActiveTrump && flippedSuit === prevActiveTrump) return null;
+  return flippedSuit;
+}
+
+/**
+ * Which cards a player may legally play.
+ * Must follow the led suit if holding any card of it; otherwise anything.
+ * Leading (ledSuit null) allows anything.
+ */
+function legalPlays(hand, ledSuit) {
+  if (!ledSuit) return hand.slice();
+  const following = hand.filter((c) => c.suit === ledSuit);
+  return following.length > 0 ? following : hand.slice();
+}
+
+function isLegalPlay(hand, ledSuit, card) {
+  return legalPlays(hand, ledSuit).some((c) => c.id === card.id);
+}
+
+/**
+ * Ordering value of a card within a trick.
+ * Trump outranks everything (so the 2 of trump beats the ace of the led suit),
+ * led suit outranks off-suit, off-suit can never win.
+ * When the led suit IS trump the first branch covers every relevant card, so
+ * the ordering stays consistent.
+ */
+function trickRank(card, ledSuit, trumpSuit) {
+  if (trumpSuit && card.suit === trumpSuit) return 200 + card.rank;
+  if (card.suit === ledSuit) return 100 + card.rank;
+  return card.rank;
+}
+
+/**
+ * Winner of a completed (or partial) trick.
+ * @param plays [{ seat, card }] in play order; plays[0] establishes the led suit
+ * @returns the winning entry
+ */
+function trickWinner(plays, trumpSuit) {
+  if (!plays.length) return null;
+  const ledSuit = plays[0].card.suit;
+  let best = plays[0];
+  let bestVal = trickRank(best.card, ledSuit, trumpSuit);
+  for (let i = 1; i < plays.length; i++) {
+    const val = trickRank(plays[i].card, ledSuit, trumpSuit);
+    if (val > bestVal) {
+      best = plays[i];
+      bestVal = val;
+    }
+  }
+  return best;
+}
+
+/**
+ * Round scoring.
+ *   exactly on bid  -> 10 + bid
+ *   over  the bid   -> 1 point per trick taken
+ *   under the bid   -> 0
+ */
+function scoreRound(bid, tricksWon) {
+  if (tricksWon === bid) return 10 + bid;
+  if (tricksWon > bid) return tricksWon;
+  return 0;
+}
+
+/** Sort helper used for the client's "auto-sort" buttons and bot logic. */
+function sortHand(hand, trumpSuit) {
+  const suitOrder = (s) => {
+    if (trumpSuit && s === trumpSuit) return -1;
+    return SUITS.indexOf(s);
+  };
+  return hand.slice().sort((a, b) => {
+    const d = suitOrder(a.suit) - suitOrder(b.suit);
+    if (d !== 0) return d;
+    return b.rank - a.rank;
+  });
+}
+
+</script>
+<script>
+/* ==================== game.js (verbatim) ==================== */
+/**
+ * game.js — authoritative game state machine for one table.
+ *
+ * The server owns every card. Clients are only ever sent the information
+ * their seat is entitled to see, so a player cannot learn another player's
+ * hand or bid by inspecting network traffic or editing their page.
+ */
+
+
+
+// Phase clocks (ms). Mutable so tests can run a full game instantly, and
+// env-overridable so a deploy can tune pacing without a code change.
+const envMs = (key, fallback) => {
+  const v = Number(process.env[key]);
+  return Number.isFinite(v) && v >= 0 ? v : fallback;
+};
+const TIMERS = {
+  bidding: envMs('DBRIDGE_BID_MS', 30000),
+  bidReveal: envMs('DBRIDGE_REVEAL_MS', 5000), // everyone reads the bids before a card is played
+  playing: envMs('DBRIDGE_PLAY_MS', 20000),
+  trickEnd: envMs('DBRIDGE_TRICK_MS', 3200),  // pause so everyone sees who took the trick
+  roundEnd: envMs('DBRIDGE_ROUND_MS', 7000),  // pause on the scoreboard between rounds
+  botDelay: envMs('DBRIDGE_BOT_MS', 900),     // bots "think" briefly so play is readable
+};
+
+// Consecutive missed decisions before a seat is handed to the bot
+const MISSES_BEFORE_BOT = 2;
+
+class Game {
+  constructor({ onChange, onEvent } = {}) {
+    this.onChange = onChange || (() => {});
+    this.onEvent = onEvent || (() => {});
+
+    this.status = 'lobby'; // lobby | playing | finished
+    this.players = [];     // seat order == array order
+    this.schedule = [];
+    this.roundIndex = -1;
+    this.round = null;
+    this.prevActiveTrump = null;
+    this.startingLeadSeat = 0;
+    this.log = [];
+  }
+
+  // ---------------------------------------------------------------- players
+
+  addPlayer({ id, name, token, deviceId }) {
+    if (this.status !== 'lobby') throw new Error('Game already in progress');
+    if (this.players.length >= MAX_PLAYERS) throw new Error('Table is full');
+    const player = {
+      id, name, token, deviceId: deviceId || null,
+      seat: this.players.length,
+      connected: true,
+      isBot: false,
+      misses: 0,
+      score: 0,
+      hand: [],
+      order: [],      // client-chosen card order
+      bid: null,
+      tricksWon: 0,
+      roundScores: [],
+      // career counters for this game, handed to the standings store at the end
+      exactBids: 0,
+      busts: 0,
+      tricks: 0,
+    };
+    this.players.push(player);
+    this.changed();
+    return player;
+  }
+
+  removePlayer(id) {
+    const idx = this.players.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    if (this.status === 'lobby') {
+      this.players.splice(idx, 1);
+      this.players.forEach((p, i) => { p.seat = i; });
+    } else {
+      // Mid-game we keep the seat so scoring stays intact; the bot plays it.
+      this.players[idx].connected = false;
+      this.players[idx].isBot = true;
+    }
+    this.changed();
+  }
+
+  setConnected(id, connected) {
+    const p = this.byId(id);
+    if (!p) return;
+    p.connected = connected;
+    if (!connected && this.status === 'playing') p.isBot = true;
+    this.changed();
+  }
+
+  /** A returning player may reclaim a seat the bot took over. */
+  reclaim(id) {
+    const p = this.byId(id);
+    if (!p) return;
+    p.isBot = false;
+    p.misses = 0;
+    this.changed();
+  }
+
+  byId(id) { return this.players.find((p) => p.id === id); }
+  bySeat(seat) { return this.players.find((p) => p.seat === seat); }
+
+  get humanCount() {
+    return this.players.filter((p) => p.connected).length;
+  }
+
+  // ------------------------------------------------------------------ start
+
+  /**
+   * @param opts.schedule optional explicit round ladder, used by practice mode
+   *        to run a short game. Every entry must be a legal hand size.
+   */
+  start({ schedule } = {}) {
+    if (this.status !== 'lobby') throw new Error('Already started');
+    if (this.players.length < MIN_PLAYERS) {
+      throw new Error(`Need at least ${MIN_PLAYERS} players`);
+    }
+    const max = maxHandSize(this.players.length);
+    if (schedule) {
+      if (!Array.isArray(schedule) || !schedule.length) {
+        throw new Error('Schedule must be a non-empty array');
+      }
+      if (!schedule.every((n) => Number.isInteger(n) && n >= 1 && n <= max)) {
+        throw new Error(`Every round must deal between 1 and ${max} cards`);
+      }
+    }
+    this.status = 'playing';
+    this.schedule = schedule ? schedule.slice() : buildSchedule(this.players.length);
+    this.roundIndex = -1;
+    this.prevActiveTrump = null;
+    // Round 1's leader is random; it rotates clockwise each round after that.
+    this.startingLeadSeat = Math.floor(Math.random() * this.players.length);
+    this.nextRound();
+  }
+
+  nextRound() {
+    this.roundIndex += 1;
+    if (this.roundIndex >= this.schedule.length) return this.finish();
+
+    const n = this.players.length;
+    const cardsPerHand = this.schedule[this.roundIndex];
+    const deck = shuffle(makeDeck());
+
+    let i = 0;
+    for (const p of this.players) {
+      p.hand = deck.slice(i, i + cardsPerHand);
+      i += cardsPerHand;
+      p.hand = sortHand(p.hand, null);
+      p.order = p.hand.map((c) => c.id);
+      p.bid = null;
+      p.tricksWon = 0;
+    }
+
+    const trumpCard = deck[i];
+    const trumpSuit = resolveTrump(trumpCard.suit, this.prevActiveTrump);
+    this.prevActiveTrump = trumpSuit; // null on a no-trump round, resetting the chain
+
+    const leadSeat = (this.startingLeadSeat + this.roundIndex) % n;
+
+    this.round = {
+      cardsPerHand,
+      tricksTotal: cardsPerHand,
+      trumpCard,
+      trumpSuit,
+      noTrump: trumpSuit === null,
+      blind: cardsPerHand === 1, // the one-card round: you see everyone but yourself
+      phase: 'bidding',
+      bidsRevealed: false,
+      leadSeat,
+      currentSeat: leadSeat,
+      trickNumber: 1,
+      trick: [],
+      lastTrick: null,
+      deadline: Date.now() + TIMERS.bidding,
+      turnStartedAt: Date.now(),
+    };
+
+    this.pushLog(
+      `Round ${this.roundIndex + 1} — ${cardsPerHand} card${cardsPerHand === 1 ? '' : 's'} each. ` +
+      `Turned up ${cardName(trumpCard)}: ` +
+      (trumpSuit
+        ? `${SUIT_NAMES[trumpSuit]} is trump.`
+        : `${SUIT_NAMES[trumpCard.suit]} repeated, so this round is NO TRUMP.`)
+    );
+    this.onEvent({ kind: 'roundStart', roundIndex: this.roundIndex });
+    this.changed();
+  }
+
+  finish() {
+    this.status = 'finished';
+    this.round = null;
+    // nextRound() overshoots by one to detect the end; clamp so the reported
+    // index always points at a real round.
+    this.roundIndex = this.schedule.length - 1;
+    const best = Math.max(...this.players.map((p) => p.score));
+    const winners = this.players.filter((p) => p.score === best).map((p) => p.name);
+    this.pushLog(
+      winners.length === 1
+        ? `${winners[0]} wins with ${best} points.`
+        : `Tie at ${best} points: ${winners.join(', ')}.`
+    );
+    this.onEvent({ kind: 'gameOver', winners, score: best });
+    this.changed();
+  }
+
+  /** Per-player rows for the standings store. Called once, when a game ends. */
+  gameSummary() {
+    const best = Math.max(...this.players.map((p) => p.score));
+    return this.players
+      .filter((p) => p.deviceId)
+      .map((p) => ({
+        deviceId: p.deviceId,
+        name: p.name,
+        score: p.score,
+        won: p.score === best,
+        rounds: p.roundScores.length,
+        exactBids: p.exactBids,
+        busts: p.busts,
+        tricks: p.tricks,
+      }));
+  }
+
+  /**
+   * Rematch: keep everyone seated, wipe the scores, go back to the lobby.
+   * Players who left during the last game are dropped and seats re-numbered.
+   */
+  reset() {
+    this.players = this.players.filter((p) => p.connected);
+    this.players.forEach((p, i) => {
+      p.seat = i;
+      p.score = 0;
+      p.hand = [];
+      p.order = [];
+      p.bid = null;
+      p.tricksWon = 0;
+      p.roundScores = [];
+      p.exactBids = 0;
+      p.busts = 0;
+      p.tricks = 0;
+      p.misses = 0;
+      p.isBot = false;
+    });
+    this.status = 'lobby';
+    this.round = null;
+    this.schedule = [];
+    this.roundIndex = -1;
+    this.prevActiveTrump = null;
+    this.log = [];
+    this.changed();
+  }
+
+  // ----------------------------------------------------------------- bidding
+
+  submitBid(playerId, n) {
+    const r = this.round;
+    if (!r || r.phase !== 'bidding') throw new Error('Not bidding right now');
+    const p = this.byId(playerId);
+    if (!p) throw new Error('Not at this table');
+    if (p.bid !== null) throw new Error('You already bid');
+    if (!Number.isInteger(n) || n < 0 || n > r.cardsPerHand) {
+      throw new Error(`Bid must be between 0 and ${r.cardsPerHand}`);
+    }
+    p.bid = n;
+    p.misses = 0;
+    this.checkBiddingComplete();
+    this.changed();
+  }
+
+  checkBiddingComplete() {
+    const r = this.round;
+    if (!r || r.phase !== 'bidding') return;
+    if (this.players.some((p) => p.bid === null)) return;
+    // All bids are in. They flip over together in their own phase — no card
+    // may be played until everyone has had a moment to read the table.
+    r.bidsRevealed = true;
+    r.phase = 'bidReveal';
+    r.deadline = Date.now() + TIMERS.bidReveal;
+    const total = this.players.reduce((s, p) => s + p.bid, 0);
+    this.pushLog(
+      'Bids: ' + this.players.map((p) => `${p.name} ${p.bid}`).join(', ') +
+      ` (${total} bid / ${r.tricksTotal} available)`
+    );
+    this.onEvent({ kind: 'bidsRevealed', total, tricks: r.tricksTotal });
+  }
+
+  /** Leaves the reveal and actually starts the first trick. */
+  startPlay() {
+    const r = this.round;
+    if (!r || r.phase !== 'bidReveal') return;
+    r.phase = 'playing';
+    r.currentSeat = r.leadSeat;
+    r.deadline = Date.now() + TIMERS.playing;
+    r.turnStartedAt = Date.now();
+    this.changed();
+  }
+
+  // ----------------------------------------------------------------- playing
+
+  ledSuit() {
+    const r = this.round;
+    return r && r.trick.length ? r.trick[0].card.suit : null;
+  }
+
+  playCard(playerId, cardIdStr) {
+    const r = this.round;
+    if (!r || r.phase !== 'playing') throw new Error('Not your move right now');
+    const p = this.byId(playerId);
+    if (!p) throw new Error('Not at this table');
+    if (p.seat !== r.currentSeat) throw new Error('Wait for your turn');
+
+    const card = p.hand.find((c) => c.id === cardIdStr);
+    if (!card) throw new Error('You do not hold that card');
+
+    const led = this.ledSuit();
+    const legal = legalPlays(p.hand, led);
+    if (!legal.some((c) => c.id === card.id)) {
+      throw new Error(`You must follow suit (${led})`);
+    }
+
+    p.hand = p.hand.filter((c) => c.id !== card.id);
+    p.order = p.order.filter((id) => id !== card.id);
+    p.misses = 0;
+    r.trick.push({ seat: p.seat, card, name: p.name });
+
+    if (r.trick.length === this.players.length) {
+      this.completeTrick();
+    } else {
+      r.currentSeat = (r.currentSeat + 1) % this.players.length;
+      r.deadline = Date.now() + TIMERS.playing;
+      r.turnStartedAt = Date.now();
+    }
+    this.changed();
+  }
+
+  completeTrick() {
+    const r = this.round;
+    const winner = trickWinner(r.trick, r.trumpSuit);
+    const wp = this.bySeat(winner.seat);
+    wp.tricksWon += 1;
+    r.winnerSeat = winner.seat;
+    r.phase = 'trickEnd';
+    r.deadline = Date.now() + TIMERS.trickEnd;
+    this.pushLog(`${wp.name} takes trick ${r.trickNumber} with ${cardName(winner.card)}.`);
+    this.onEvent({ kind: 'trickWon', seat: winner.seat, card: winner.card });
+  }
+
+  resolveTrickEnd() {
+    const r = this.round;
+    r.lastTrick = { plays: r.trick, winnerSeat: r.winnerSeat };
+    r.trick = [];
+    r.winnerSeat = undefined;
+
+    if (r.trickNumber >= r.tricksTotal) return this.endRound();
+
+    // Winner of the trick leads the next one.
+    r.trickNumber += 1;
+    r.leadSeat = r.lastTrick.winnerSeat;
+    r.currentSeat = r.lastTrick.winnerSeat;
+    r.phase = 'playing';
+    r.deadline = Date.now() + TIMERS.playing;
+    r.turnStartedAt = Date.now();
+    this.changed();
+  }
+
+  endRound() {
+    const r = this.round;
+    r.phase = 'roundEnd';
+    r.deadline = Date.now() + TIMERS.roundEnd;
+    r.results = this.players.map((p) => {
+      const gained = scoreRound(p.bid, p.tricksWon);
+      p.score += gained;
+      p.roundScores.push(gained);
+      p.tricks += p.tricksWon;
+      if (p.tricksWon === p.bid) p.exactBids += 1;
+      else if (p.tricksWon < p.bid) p.busts += 1;
+      return { seat: p.seat, name: p.name, bid: p.bid, tricksWon: p.tricksWon, gained, total: p.score };
+    });
+    this.pushLog(
+      'Round scored: ' +
+      r.results.map((x) => `${x.name} bid ${x.bid}, took ${x.tricksWon} (+${x.gained})`).join('; ')
+    );
+    this.onEvent({ kind: 'roundEnd', results: r.results });
+    this.changed();
+  }
+
+  // -------------------------------------------------------------- hand order
+
+  setOrder(playerId, order) {
+    const p = this.byId(playerId);
+    if (!p) return;
+    const held = new Set(p.hand.map((c) => c.id));
+    const clean = order.filter((id) => held.has(id));
+    for (const id of held) if (!clean.includes(id)) clean.push(id);
+    p.order = clean;
+    // No broadcast: this is a private, cosmetic preference.
+  }
+
+  // ------------------------------------------------------------------- clock
+
+  /** Called on a short interval by the room manager. */
+  tick() {
+    const r = this.round;
+    if (this.status !== 'playing' || !r) return;
+    const now = Date.now();
+
+    if (r.phase === 'bidReveal' && now >= r.deadline) return this.startPlay();
+    if (r.phase === 'trickEnd' && now >= r.deadline) return this.resolveTrickEnd();
+    if (r.phase === 'roundEnd' && now >= r.deadline) return this.nextRound();
+
+    if (r.phase === 'bidding') {
+      let acted = false;
+      for (const p of this.players) {
+        if (p.bid !== null) continue;
+        const botReady = p.isBot && now >= r.turnStartedAt + TIMERS.botDelay;
+        const timedOut = now >= r.deadline;
+        if (botReady || timedOut) {
+          if (timedOut && !p.isBot) this.registerMiss(p);
+          p.bid = this.botBid(p);
+          acted = true;
+        }
+      }
+      if (acted) { this.checkBiddingComplete(); this.changed(); }
+      return;
+    }
+
+    if (r.phase === 'playing') {
+      const p = this.bySeat(r.currentSeat);
+      if (!p) return;
+      const botReady = p.isBot && now >= r.turnStartedAt + TIMERS.botDelay;
+      const timedOut = now >= r.deadline;
+      if (botReady || timedOut) {
+        if (timedOut && !p.isBot) this.registerMiss(p);
+        const card = this.botCard(p);
+        if (card) {
+          try { this.playCard(p.id, card.id); } catch { /* race with a real play */ }
+        }
+      }
+    }
+  }
+
+  registerMiss(p) {
+    p.misses += 1;
+    if (p.misses >= MISSES_BEFORE_BOT && !p.isBot) {
+      p.isBot = true;
+      this.pushLog(`${p.name} timed out — the bot is playing that seat. They can take it back anytime.`);
+    }
+  }
+
+  // --------------------------------------------------------------------- bot
+
+  botBid(p) {
+    const r = this.round;
+    let expect = 0;
+    for (const c of p.hand) {
+      const isTrump = r.trumpSuit && c.suit === r.trumpSuit;
+      if (isTrump) expect += c.rank >= 12 ? 0.9 : c.rank >= 9 ? 0.55 : 0.25;
+      else if (c.rank === 14) expect += 0.85;
+      else if (c.rank === 13) expect += 0.5;
+      else if (c.rank === 12) expect += 0.25;
+    }
+    return Math.max(0, Math.min(r.cardsPerHand, Math.round(expect)));
+  }
+
+  botCard(p) {
+    const r = this.round;
+    if (!p.hand.length) return null;
+    const led = this.ledSuit();
+    const legal = legalPlays(p.hand, led);
+    if (legal.length === 1) return legal[0];
+
+    const need = p.bid - p.tricksWon;
+    const wantsTricks = need > 0;
+
+    if (!led) {
+      // Leading: push a high card when chasing tricks, otherwise dump low.
+      const sorted = legal.slice().sort((a, b) => b.rank - a.rank);
+      return wantsTricks ? sorted[0] : sorted[sorted.length - 1];
+    }
+
+    const current = trickWinner(r.trick, r.trumpSuit);
+    const beats = (c) => {
+      const test = r.trick.concat([{ seat: p.seat, card: c }]);
+      return trickWinner(test, r.trumpSuit).seat === p.seat;
+    };
+    const winning = legal.filter(beats).sort((a, b) => a.rank - b.rank);
+    const losing = legal.filter((c) => !beats(c)).sort((a, b) => a.rank - b.rank);
+
+    if (wantsTricks && winning.length) return winning[0];       // win as cheaply as possible
+    if (!wantsTricks && losing.length) return losing[losing.length - 1]; // dump the biggest safe card
+    return (losing[0] || winning[0] || legal[0]);
+  }
+
+  // ------------------------------------------------------------------- views
+
+  pushLog(text) {
+    this.log.push({ t: Date.now(), text });
+    if (this.log.length > 60) this.log.shift();
+  }
+
+  orderedHand(p) {
+    const map = new Map(p.hand.map((c) => [c.id, c]));
+    const out = [];
+    for (const id of p.order) if (map.has(id)) { out.push(map.get(id)); map.delete(id); }
+    for (const c of map.values()) out.push(c);
+    return out;
+  }
+
+  /**
+   * Build the slice of state one player is allowed to see.
+   * Hands, and un-revealed bids, never leave the server for other seats.
+   */
+  viewFor(playerId) {
+    const me = this.byId(playerId);
+    const r = this.round;
+
+    const players = this.players.map((p) => {
+      const isMe = p.id === playerId;
+      let visibleHand = null;
+      if (r && r.blind && !isMe) {
+        // The one-card round: everyone else's card is face up, yours is not.
+        visibleHand = this.orderedHand(p).map((c) => c.id);
+      }
+      return {
+        id: p.id,
+        seat: p.seat,
+        name: p.name,
+        connected: p.connected,
+        isBot: p.isBot,
+        score: p.score,
+        tricksWon: p.tricksWon,
+        handCount: p.hand.length,
+        hasBid: p.bid !== null,
+        bid: r && r.bidsRevealed ? p.bid : (isMe ? p.bid : null),
+        roundScores: p.roundScores,
+        visibleHand,
+      };
+    });
+
+    let yourHand = null;
+    let legal = null;
+    if (me && r) {
+      if (r.blind) {
+        // You cannot see your own card this round.
+        yourHand = null;
+      } else {
+        yourHand = this.orderedHand(me).map((c) => c.id);
+      }
+      if (r.phase === 'playing' && r.currentSeat === me.seat) {
+        legal = legalPlays(me.hand, this.ledSuit()).map((c) => c.id);
+      }
+    }
+
+    return {
+      status: this.status,
+      you: me ? { id: me.id, seat: me.seat, name: me.name, isBot: me.isBot } : null,
+      players,
+      roundIndex: this.roundIndex,
+      totalRounds: this.schedule.length,
+      schedule: this.schedule,
+      round: r ? {
+        cardsPerHand: r.cardsPerHand,
+        tricksTotal: r.tricksTotal,
+        trickNumber: r.trickNumber,
+        trumpCard: r.trumpCard.id,
+        trumpSuit: r.trumpSuit,
+        noTrump: r.noTrump,
+        blind: r.blind,
+        phase: r.phase,
+        bidsRevealed: r.bidsRevealed,
+        leadSeat: r.leadSeat,
+        currentSeat: r.currentSeat,
+        ledSuit: this.ledSuit(),
+        trick: r.trick.map((x) => ({ seat: x.seat, card: x.card.id, name: x.name })),
+        winnerSeat: r.winnerSeat,
+        // Who would take the trick if it stopped right now. Computed here so
+        // the client never has to re-implement the ranking rules.
+        leadingSeat: r.trick.length ? trickWinner(r.trick, r.trumpSuit).seat : null,
+        lastTrick: r.lastTrick ? {
+          winnerSeat: r.lastTrick.winnerSeat,
+          plays: r.lastTrick.plays.map((x) => ({ seat: x.seat, card: x.card.id, name: x.name })),
+        } : null,
+        results: r.results || null,
+        deadline: r.deadline,
+        maxBid: r.cardsPerHand,
+        totalBid: r.bidsRevealed ? this.players.reduce((s, p) => s + (p.bid || 0), 0) : null,
+      } : null,
+      yourHand,
+      yourBid: me ? me.bid : null,
+      legal,
+      log: this.log.slice(-12),
+    };
+  }
+
+  changed() { this.onChange(); }
+}
+
+</script>
+<script>
+/* ------------------------------------------------------------------ *
+ * Practice transport: the same Game class the server runs, driven in  *
+ * this page, exposing the identical message protocol to the client.   *
+ * ------------------------------------------------------------------ */
+(function () {
+  'use strict';
+
+  var listener = null;
+  var room = null;
+
+  function emit(msg) { if (listener) setTimeout(function () { listener(msg); }, 0); }
+
+  var BOT_NAMES = ['Ada', 'Bruno', 'Cleo', 'Dmitri', 'Esme', 'Felix',
+                   'Greta', 'Hugo', 'Iris'];
+
+  function LocalRoom(opts) {
+    var self = this;
+    this.code = 'SOLO';
+    this.youId = 'you';
+    this.game = new Game({
+      onChange: function () { self.broadcast(); },
+      onEvent: function (e) { emit(Object.assign({ t: 'event' }, e)); },
+    });
+
+    this.game.addPlayer({ id: 'you', name: opts.name || 'You', token: 'you', deviceId: null });
+    for (var i = 1; i < opts.players; i++) {
+      this.game.addPlayer({
+        id: 'bot' + i, name: BOT_NAMES[i - 1] || ('Bot' + i),
+        token: 'bot' + i, deviceId: null,
+      });
+      this.game.players[i].isBot = true;
+    }
+
+    this.timer = setInterval(function () {
+      try { self.game.tick(); } catch (err) { console.error(err); }
+    }, 250);
+  }
+
+  LocalRoom.prototype.broadcast = function () {
+    emit({
+      t: 'state',
+      room: { code: this.code, isPrivate: true, hostId: this.youId, canStart: true, gamesPlayed: 0 },
+      game: this.game.viewFor(this.youId),
+    });
+  };
+
+  LocalRoom.prototype.handle = function (m) {
+    var g = this.game;
+    switch (m.t) {
+      case 'bid':     g.submitBid(this.youId, Number(m.n)); break;
+      case 'play':    g.playCard(this.youId, String(m.card)); break;
+      case 'reorder': if (Array.isArray(m.order)) g.setOrder(this.youId, m.order.map(String)); break;
+      case 'rematch': {
+        // Suppress the broadcast from reset() so the client never flashes the
+        // lobby screen between one game ending and the next beginning.
+        var notify = g.onChange;
+        g.onChange = function () {};
+        g.reset();
+        g.players.forEach(function (p, i) { if (i > 0) p.isBot = true; });
+        g.onChange = notify;
+        g.start(this.opts && this.opts.schedule ? { schedule: this.opts.schedule } : undefined);
+        break;
+      }
+      default: break;
+    }
+  };
+
+  window.__PRACTICE__ = {
+    connect: function (onMessage) {
+      listener = onMessage;
+      emit({ t: 'hello', limits: { min: 5, max: 10 } });
+      return {
+        readyState: 1,
+        send: function (raw) {
+          var m;
+          try { m = JSON.parse(raw); } catch (e) { return; }
+          if (m.t === 'practiceStart') return window.__PRACTICE__.begin(m);
+          if (m.t === 'leaveRoom') { location.reload(); return; }
+          if (!room) return;
+          try { room.handle(m); } catch (err) { emit({ t: 'error', msg: err.message }); }
+        },
+      };
+    },
+
+    begin: function (m) {
+      if (room) { clearInterval(room.timer); }
+      // Relaxed clocks by default so a first playthrough is not a race.
+      TIMERS.bidding = m.relaxed ? 90000 : 30000;
+      TIMERS.playing = m.relaxed ? 60000 : 20000;
+      // Table speed governs how long each bot pauses and how long the winning
+      // trick stays on screen before it is swept away.
+      var SPEEDS = {
+        slow:   { botDelay: 1500, trickEnd: 4200, roundEnd: 9000, bidReveal: 7000 },
+        normal: { botDelay: 900,  trickEnd: 3200, roundEnd: 7000, bidReveal: 5000 },
+        fast:   { botDelay: 350,  trickEnd: 1300, roundEnd: 3000, bidReveal: 1200 },
+      };
+      var sp = SPEEDS[m.speed] || SPEEDS.slow;
+      TIMERS.botDelay = sp.botDelay;
+      TIMERS.trickEnd = sp.trickEnd;
+      TIMERS.roundEnd = sp.roundEnd;
+      TIMERS.bidReveal = sp.bidReveal;
+
+      room = new LocalRoom({ name: m.name, players: m.players });
+      // Same handshake the real server sends, so the client knows who it is.
+      emit({ t: 'joined', code: room.code, playerId: room.youId });
+      var schedule = m.quick ? quickSchedule(m.players) : null;
+      room.opts = { schedule: schedule };
+      room.game.start(schedule ? { schedule: schedule } : undefined);
+    },
+  };
+
+  /** A short ladder that still exercises the blind round and the trump chain. */
+  function quickSchedule(players) {
+    var max = maxHandSize(players);
+    var top = Math.min(3, max);
+    var out = [];
+    for (var n = top; n >= 1; n--) out.push(n);
+    for (var m2 = 2; m2 <= top; m2++) out.push(m2);
+    return out;
+  }
+})();
+</script>
+<script>
+/* Wire the practice setup panel. */
+(function () {
+  var send = null;
+  var realConnect = window.__PRACTICE__.connect;
+  window.__PRACTICE__.connect = function (onMessage) {
+    var t = realConnect(onMessage);
+    send = function (m) { t.send(JSON.stringify(m)); };
+    return t;
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('pStart');
+    var nameEl = document.getElementById('pName');
+    try { nameEl.value = localStorage.getItem('db_name') || ''; } catch (e) { /* ignore */ }
+    btn.addEventListener('click', function () {
+      var name = (nameEl.value || 'You').trim().slice(0, 14) || 'You';
+      try { localStorage.setItem('db_name', name); } catch (e) { /* ignore */ }
+      send({
+        t: 'practiceStart',
+        name: name,
+        players: parseInt(document.getElementById('pPlayers').value, 10),
+        quick: document.getElementById('pLength').value === 'quick',
+        relaxed: document.getElementById('pRelaxed').checked,
+        speed: document.getElementById('pSpeed').value,
+      });
+    });
+  });
+})();
+</script>
+<script>
+/* Diminishing Bridge — browser client.
+   The server is authoritative; this file only renders what it is told and
+   sends intents back. It never decides legality or scoring on its own. */
+
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const SUIT_SYMBOL = { S: '♠', H: '♥', D: '♦', C: '♣' };
+  const SUIT_NAMES = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
+  const RANK_LABEL = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+
+  const parse = (id) => ({ rank: parseInt(id, 10), suit: id.slice(-1), id });
+  const label = (rank) => RANK_LABEL[rank] || String(rank);
+  const isRed = (suit) => suit === 'H' || suit === 'D';
+
+  // ------------------------------------------------------------- state
+  let ws = null;
+  let state = null;     // latest game view from the server
+  let room = null;      // latest room meta
+  let myId = null;
+
+  /**
+   * Who am I? The server states this outright in every state payload, which is
+   * more reliable than the id we cached from the join handshake — a reconnect
+   * or a locally hosted table may never replay that handshake.
+   */
+  const selfId = () => (state && state.you ? state.you.id : myId);
+  let myOrder = [];     // client-side hand order
+  let reconnectDelay = 800;
+  let toastTimer = null;
+
+  const savedName = (() => {
+    try { return localStorage.getItem('db_name') || ''; } catch { return ''; }
+  })();
+
+  /* ------------------------------------------------------------------ device
+     A private per-browser id. Not a login — it just keeps career standings
+     attached to the right browser no matter what nickname is typed, so nobody
+     can inherit your record by copying your name. */
+  const deviceId = (() => {
+    try {
+      let id = localStorage.getItem('db_device');
+      if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now())
+          .replace(/[^A-Za-z0-9_-]/g, '');
+        localStorage.setItem('db_device', id);
+      }
+      return id;
+    } catch {
+      // Private browsing with storage disabled: stats simply will not persist.
+      return null;
+    }
+  })();
+
+  /* ------------------------------------------------------------------- sound
+     Everything is synthesised with WebAudio, so there are no asset files to
+     host and nothing extra to download. Browsers block audio until the user
+     interacts with the page, so the context is created on first gesture. */
+  const Sound = (() => {
+    let ctx = null;
+    let enabled = true;
+    try { enabled = localStorage.getItem('db_sound') !== 'off'; } catch { /* default on */ }
+
+    function ensure() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        try { ctx = new AC(); } catch { return null; }
+      }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      return ctx;
+    }
+
+    function tone(freq, start, dur, { type = 'sine', gain = 0.13 } = {}) {
+      const c = ensure();
+      if (!c) return;
+      const osc = c.createOscillator();
+      const amp = c.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const t0 = c.currentTime + start;
+      amp.gain.setValueAtTime(0.0001, t0);
+      amp.gain.linearRampToValueAtTime(gain, t0 + 0.012);
+      amp.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(amp);
+      amp.connect(c.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.03);
+    }
+
+    const CUES = {
+      // Distinctly attention-grabbing: this is the one you must not miss.
+      yourTurn:   () => { tone(660, 0, 0.13, { type: 'triangle', gain: 0.16 });
+                          tone(990, 0.11, 0.20, { type: 'triangle', gain: 0.16 }); },
+      cardPlay:   () => tone(320, 0, 0.06, { type: 'square', gain: 0.05 }),
+      trickWon:   () => { tone(523, 0, 0.12); tone(659, 0.08, 0.13); tone(784, 0.16, 0.22); },
+      trickLost:  () => tone(196, 0, 0.14, { type: 'sine', gain: 0.07 }),
+      bidsIn:     () => { tone(440, 0, 0.09, { type: 'triangle', gain: 0.1 });
+                          tone(587, 0.07, 0.16, { type: 'triangle', gain: 0.1 }); },
+      roundEnd:   () => { tone(392, 0, 0.14); tone(523, 0.12, 0.14); tone(659, 0.24, 0.26); },
+      gameOver:   () => { tone(523, 0, 0.16); tone(659, 0.14, 0.16);
+                          tone(784, 0.28, 0.16); tone(1047, 0.42, 0.42); },
+      chat:       () => tone(880, 0, 0.05, { type: 'sine', gain: 0.05 }),
+      bidNow:     () => { tone(587, 0, 0.11, { type: 'triangle', gain: 0.13 });
+                          tone(880, 0.09, 0.18, { type: 'triangle', gain: 0.13 }); },
+    };
+
+    return {
+      play(name) { if (enabled && CUES[name]) { try { CUES[name](); } catch { /* audio blocked */ } } },
+      get enabled() { return enabled; },
+      toggle() {
+        enabled = !enabled;
+        try { localStorage.setItem('db_sound', enabled ? 'on' : 'off'); } catch { /* ignore */ }
+        if (enabled) { ensure(); this.play('cardPlay'); }
+        return enabled;
+      },
+      warm() { ensure(); },
+    };
+  })();
+
+  // Edge detection so cues fire on transitions, never on every repaint.
+  const cue = {
+    myTurn: false,
+    phase: null,
+    roundIndex: -1,
+    trickLen: 0,
+    winnerSeat: undefined,
+    finished: false,
+  };
+
+  // ------------------------------------------------------------- socket
+  function connect() {
+    // Practice mode runs the identical server logic inside this page instead
+    // of over a network, and hands us an object with the same shape as a
+    // WebSocket. Everything below this line is unaware of the difference.
+    if (window.__PRACTICE__) {
+      ws = window.__PRACTICE__.connect(onMessage);
+      return;
+    }
+
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+    ws.onopen = () => {
+      reconnectDelay = 800;
+      if (currentScreen() === 'screen-landing') {
+        sendMsg({ t: 'watchLobby' });
+        requestBoard();
+      }
+    };
+
+    ws.onmessage = (ev) => {
+      let m;
+      try { m = JSON.parse(ev.data); } catch { return; }
+      onMessage(m);
+    };
+
+    ws.onclose = () => {
+      setTimeout(connect, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 1.6, 8000);
+    };
+
+    ws.onerror = () => { /* onclose handles retry */ };
+  }
+
+  function sendMsg(m) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(m));
+  }
+
+  function onMessage(m) {
+    switch (m.t) {
+      case 'rooms': renderRoomList(m.rooms); break;
+      case 'joined': myId = m.playerId; chatMsgs = []; break;
+      case 'left':
+        state = null; room = null; chatMsgs = [];
+        resetCues();
+        showScreen('screen-landing');
+        requestBoard();
+        break;
+      case 'error': toast(m.msg); break;
+      case 'event': onEvent(m); break;
+      case 'chatHistory': chatMsgs = m.msgs || []; renderChat(); break;
+      case 'chat': pushChat(m.msg); break;
+      case 'leaderboard': renderLeaderboard(m.rows, m.mine); break;
+      case 'state':
+        room = m.room;
+        state = m.game;
+        render();
+        break;
+    }
+  }
+
+  function resetCues() {
+    cue.myTurn = false;
+    cue.phase = null;
+    cue.roundIndex = -1;
+    cue.trickLen = 0;
+    cue.winnerSeat = undefined;
+    cue.finished = false;
+  }
+
+  function onEvent(e) {
+    if (e.kind === 'roundStart') {
+      myOrder = [];
+      hide($('resultOverlay'));
+      playDealAnimation();
+    }
+    if (e.kind === 'bidsRevealed') Sound.play('bidsIn');
+  }
+
+  /** Fire audio cues for meaningful state transitions only. */
+  function runCues() {
+    const r = state.round;
+
+    if (state.status === 'finished') {
+      if (!cue.finished) { cue.finished = true; Sound.play('gameOver'); }
+      return;
+    }
+    cue.finished = false;
+    if (!r) return;
+
+    if (state.roundIndex !== cue.roundIndex) {
+      cue.roundIndex = state.roundIndex;
+      cue.phase = null;
+      cue.trickLen = 0;
+      cue.winnerSeat = undefined;
+      if (r.phase === 'bidding' && state.yourBid === null) Sound.play('bidNow');
+    }
+
+    if (r.phase !== cue.phase) {
+      cue.phase = r.phase;
+      // The bid reveal has its own server event, so it is not cued here.
+      if (r.phase === 'roundEnd') Sound.play('roundEnd');
+    }
+
+    if (r.phase === 'trickEnd' && r.winnerSeat !== cue.winnerSeat) {
+      cue.winnerSeat = r.winnerSeat;
+      const mine = state.you && r.winnerSeat === state.you.seat;
+      Sound.play(mine ? 'trickWon' : 'trickLost');
+    }
+    if (r.phase !== 'trickEnd') cue.winnerSeat = undefined;
+
+    const len = r.trick.length;
+    if (len > cue.trickLen) Sound.play('cardPlay');
+    cue.trickLen = len;
+
+    const isMyTurn = !!(r.phase === 'playing' && state.you && r.currentSeat === state.you.seat);
+    if (isMyTurn && !cue.myTurn) Sound.play('yourTurn');
+    cue.myTurn = isMyTurn;
+  }
+
+  // ------------------------------------------------------------- screens
+  function currentScreen() {
+    const el = document.querySelector('.screen.active');
+    return el ? el.id : null;
+  }
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
+  }
+  const show = (el) => el.classList.add('show');
+  const hide = (el) => el.classList.remove('show');
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    show(t);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => hide(t), 3200);
+  }
+
+  function nameValue() {
+    const v = $('nameInput').value.trim();
+    if (v) { try { localStorage.setItem('db_name', v); } catch { /* private mode */ } }
+    return v || 'Player';
+  }
+
+  // ------------------------------------------------------------- landing
+  function renderRoomList(rooms) {
+    const box = $('roomList');
+    if (!rooms || !rooms.length) {
+      box.innerHTML = '<p class="empty">No open tables right now. Create one and share the code, or hit Quick Play.</p>';
+      return;
+    }
+    box.innerHTML = '';
+    for (const r of rooms) {
+      const row = document.createElement('div');
+      row.className = 'room-row';
+      row.innerHTML =
+        `<span class="rc">${r.code}</span>` +
+        `<span class="rn">${r.names.map(esc).join(', ') || 'empty'}</span>` +
+        `<span class="rp">${r.players}/${r.max}</span>`;
+      const btn = document.createElement('button');
+      btn.className = 'btn tiny';
+      btn.textContent = 'Join';
+      btn.onclick = () => sendMsg({ t: 'joinRoom', code: r.code, name: nameValue() });
+      row.appendChild(btn);
+      box.appendChild(row);
+    }
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ------------------------------------------------------------- render
+  function render() {
+    if (!state) return;
+    if (state.status === 'lobby') {
+      resetCues();
+      renderLobby();
+      showScreen('screen-lobby');
+      return;
+    }
+    showScreen('screen-game');
+    renderGame();
+    runCues();
+  }
+
+  function renderLobby() {
+    $('lobbyCode').textContent = room.code;
+    $('lobbyPrivacy').textContent = room.isPrivate
+      ? 'Private table — only people with the code can join.'
+      : 'Listed publicly. Anyone can find and join this table.';
+
+    const box = $('lobbyPlayers');
+    box.innerHTML = '';
+    for (const p of state.players) {
+      const c = document.createElement('span');
+      c.className = 'chip' + (p.id === room.hostId ? ' host' : '');
+      c.textContent = p.name + (p.id === room.hostId ? ' (host)' : '');
+      box.appendChild(c);
+    }
+
+    const n = state.players.length;
+    const need = Math.max(0, 5 - n);
+    $('lobbyStatus').textContent = need > 0
+      ? `${n} seated. Need ${need} more to start (5 minimum, 10 maximum).`
+      : `${n} seated. Ready when you are.`;
+
+    const isHost = selfId() === room.hostId;
+    const btn = $('btnStart');
+    btn.disabled = !(isHost && room.canStart);
+    btn.textContent = isHost ? 'Start game' : 'Waiting for host';
+
+    $('lobbyPreview').textContent = n >= 5
+      ? `With ${n} players: ${Math.floor(51 / n)} cards each in round 1, ${2 * Math.floor(51 / n) - 1} rounds total.`
+      : '';
+  }
+
+  function renderGame() {
+    const r = state.round;
+    $('gameCode').textContent = room.code;
+
+    renderRoundInfo();
+    renderScoreboard();
+    renderLog();
+    renderLastTrick();
+    renderSeats();
+    renderCenter();
+    renderHand();
+    renderTrumpChip();
+    renderBidOverlay();
+    renderRevealOverlay();
+    renderResultOverlay();
+    void r;
+  }
+
+  /** Trump repeated beside the hand, where your eyes are when choosing. */
+  function renderTrumpChip() {
+    const chip = $('trumpChip');
+    const r = state.round;
+    if (!chip) return;
+    if (!r) { chip.className = 'trump-chip'; chip.innerHTML = ''; return; }
+    if (r.noTrump) {
+      chip.className = 'trump-chip show none';
+      chip.innerHTML = '<span class="lab">no trump</span><span class="val">this round</span>';
+      return;
+    }
+    chip.className = 'trump-chip show' + (isRed(r.trumpSuit) ? ' red' : '');
+    chip.innerHTML = `<span class="lab">trump</span>` +
+      `<span class="suit">${SUIT_SYMBOL[r.trumpSuit]}</span>` +
+      `<span class="val">${SUIT_NAMES[r.trumpSuit]}</span>`;
+  }
+
+  function renderRoundInfo() {
+    const r = state.round;
+    const box = $('roundInfo');
+    if (!r) {
+      box.innerHTML = '<span class="big">Game over</span>';
+      return;
+    }
+    const ladder = state.schedule
+      .map((n, i) => (i === state.roundIndex ? `<b>${n}</b>` : n))
+      .join(' · ');
+    const trump = r.noTrump
+      ? '<span class="trump-tag none">NO TRUMP this round</span>'
+      : `<span class="trump-tag">Trump: ${SUIT_SYMBOL[r.trumpSuit]} ${SUIT_NAMES[r.trumpSuit]}</span>`;
+
+    box.innerHTML =
+      `<span class="big">Round ${state.roundIndex + 1} of ${state.totalRounds}</span>` +
+      `${r.cardsPerHand} card${r.cardsPerHand === 1 ? '' : 's'} each · ` +
+      `trick ${Math.min(r.trickNumber, r.tricksTotal)} of ${r.tricksTotal}<br>` +
+      trump +
+      `<div class="ladder" style="margin-top:8px">${ladder}</div>` +
+      (r.bidsRevealed
+        ? `<div style="margin-top:6px">Bids total <b>${r.totalBid}</b> vs <b>${r.tricksTotal}</b> tricks available</div>`
+        : '');
+  }
+
+  function renderScoreboard() {
+    const players = state.players.slice().sort((a, b) => b.score - a.score || a.seat - b.seat);
+    const top = players.length ? players[0].score : 0;
+    let html = '<table><thead><tr><th>Player</th><th class="num">Bid</th><th class="num">Won</th><th class="num">Score</th></tr></thead><tbody>';
+    for (const p of players) {
+      const cls = [p.id === selfId() ? 'me' : '', p.score === top && top > 0 ? 'lead' : ''].filter(Boolean).join(' ');
+      const bid = state.round && state.round.bidsRevealed ? p.bid
+        : (p.id === selfId() && state.yourBid !== null ? state.yourBid : (p.hasBid ? '•' : '–'));
+      html += `<tr class="${cls}"><td>${esc(p.name)}</td>` +
+        `<td class="num">${bid === null ? '–' : bid}</td>` +
+        `<td class="num">${state.round ? p.tricksWon : '–'}</td>` +
+        `<td class="num">${p.score}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    $('scoreboard').innerHTML = html;
+  }
+
+  function renderLog() {
+    $('logBox').innerHTML = (state.log || [])
+      .slice()
+      .reverse()
+      .map((l) => `<div>${esc(l.text)}</div>`)
+      .join('');
+  }
+
+  /**
+   * Where a seat sits on the oval. Index 0 is always you, at the bottom, and
+   * the rest run clockwise from there. `pull` shrinks the radius, which is how
+   * played cards get drawn just inside their owner.
+   */
+  function seatPos(seat, pull) {
+    const n = state.players.length;
+    const mySeat = state.you ? state.you.seat : 0;
+    const k = (seat - mySeat + n) % n;
+    const theta = (Math.PI / 2) + (k * 2 * Math.PI) / n;
+    const f = pull == null ? 1 : pull;
+    return { x: 50 + 40 * f * Math.cos(theta), y: 50 + 39 * f * Math.sin(theta) };
+  }
+
+  function renderSeats() {
+    const box = $('seats');
+    const r = state.round;
+
+    box.innerHTML = '';
+    for (const p of state.players) {
+      const { x, y } = seatPos(p.seat);
+      const isMe = p.id === selfId();
+
+      const el = document.createElement('div');
+      el.className = 'seat';
+      el.style.left = x + '%';
+      el.style.top = y + '%';
+
+      const isTurn = !!(r && r.phase === 'playing' && r.currentSeat === p.seat);
+      const tookIt = !!(r && r.winnerSeat === p.seat);
+      if (isTurn) el.classList.add('active');
+      if (tookIt) el.classList.add('winner');
+      if (isMe) el.classList.add('me', 'is-me');
+      if (!p.connected) el.classList.add('offline');
+      if (r && r.bidsRevealed) {
+        if (p.tricksWon === p.bid) el.classList.add('bid-hit');
+        else if (p.tricksWon > p.bid) el.classList.add('bid-over');
+      }
+
+      // One badge at a time, most urgent first. Who leads is announced from
+      // the moment the round is dealt — before bidding, not after — because on
+      // the blind round that is the single most useful thing you know.
+      let badge = '';
+      if (tookIt) badge = '<div class="badge took">took it</div>';
+      else if (isTurn) badge = `<div class="badge turn">${isMe ? 'your turn' : 'to play'}</div>`;
+      else if (r && (r.phase === 'bidding' || r.phase === 'bidReveal') && r.leadSeat === p.seat) {
+        badge = `<div class="badge lead">${isMe ? 'you lead' : 'leads first'}</div>`;
+      } else if (r && r.phase === 'playing' && r.leadSeat === p.seat && !r.trick.length) {
+        badge = '<div class="badge lead">leads</div>';
+      } else if (r && r.phase === 'playing' && r.leadSeat === p.seat) {
+        badge = '<div class="badge lead">led</div>';
+      }
+
+      // A big standing number next to the name once the bids are open.
+      const bidNum = r && r.bidsRevealed && p.bid !== null
+        ? `<div class="bidnum${p.bid === 0 ? ' zero' : ''}">${p.bid}</div>`
+        : '';
+
+      // Two short lines rather than one long one — at seat width, a single
+      // line wraps mid-phrase and is hard to read at a glance.
+      let meta = '';
+      let pips = '';
+      if (r) {
+        if (r.bidsRevealed) {
+          const diff = p.tricksWon - p.bid;
+          const cls = diff === 0 ? 'hit' : diff > 0 ? 'over' : 'under';
+          meta = `<span class="${cls}">${p.tricksWon} of ${p.bid}</span>`;
+          // A dot per bid trick, filled as they take them; red dots are overtricks.
+          const dots = [];
+          for (let i = 0; i < p.bid; i++) dots.push(`<span class="pip${i < p.tricksWon ? ' won' : ''}"></span>`);
+          for (let i = p.bid; i < p.tricksWon; i++) dots.push('<span class="pip over"></span>');
+          if (dots.length) pips = `<div class="tricks-pips">${dots.join('')}</div>`;
+        } else {
+          meta = p.hasBid ? '<span class="hit">bid in ✓</span>' : 'thinking…';
+        }
+        meta += `<div class="pts">${p.score} pts</div>`;
+      }
+
+      // On the blind single-card round, everyone else's card is face up.
+      let blind = '';
+      if (r && r.blind && p.visibleHand && p.visibleHand.length) {
+        blind = `<div class="blindcards">${p.visibleHand.map((c) => cardHTML(c, 'sm')).join('')}</div>`;
+      } else if (r && r.blind && isMe) {
+        blind = `<div class="blindcards">${p.handCount ? '<div class="card sm back"></div>' : ''}</div>`;
+      }
+
+      el.innerHTML =
+        badge + bidNum +
+        `<div class="avatar">` +
+        `<div class="nm">${esc(p.name)}${p.isBot ? '<span class="bot-tag">BOT</span>' : ''}</div>` +
+        `<div class="meta">${meta}</div>` +
+        pips +
+        blind +
+        `</div>`;
+      box.appendChild(el);
+    }
+  }
+
+  function cardHTML(id, size) {
+    const c = parse(id);
+    const cls = ['card', size || '', isRed(c.suit) ? 'red' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-card="${id}">` +
+      `<span class="r">${label(c.rank)}</span><span class="s">${SUIT_SYMBOL[c.suit]}</span></div>`;
+  }
+
+  function renderCenter() {
+    const r = state.round;
+    const trumpBox = $('trumpBlock');
+    const trickBox = $('trickLayer');
+    const msg = $('centerMsg');
+
+    if (!r) { trumpBox.innerHTML = ''; trickBox.innerHTML = ''; msg.textContent = ''; return; }
+
+    const tc = parse(r.trumpCard);
+    trumpBox.innerHTML =
+      `<div class="tlabel">turned up</div>` +
+      `<div class="card sm ${isRed(tc.suit) ? 'red' : ''} trumpcard">` +
+      `<span class="r">${label(tc.rank)}</span><span class="s">${SUIT_SYMBOL[tc.suit]}</span></div>` +
+      `<div class="tname ${r.noTrump ? 'none' : ''}">` +
+      `${r.noTrump ? 'NO TRUMP' : SUIT_SYMBOL[r.trumpSuit] + ' ' + SUIT_NAMES[r.trumpSuit]}</div>`;
+
+    renderTrick(trickBox, r);
+
+    paintStatus();
+  }
+
+  /** The live status line, mirrored into the felt and the mobile bar. */
+  function paintStatus() {
+    const m = centerMessage();
+    const centre = $('centerMsg');
+    centre.innerHTML = m.html;
+    centre.className = 'center-msg' + (m.big ? ' big' : '');
+    const bar = $('statusBar');
+    if (bar) {
+      bar.innerHTML = m.html;
+      bar.className = 'status-bar' + (m.big ? ' big' : '');
+    }
+  }
+
+  /**
+   * Each played card is drawn just inside the seat that played it.
+   *
+   * Built incrementally on purpose: blowing away innerHTML on every state
+   * update restarts the deal-in animation on every card at once, which makes
+   * the whole trick flicker and wash out. Cards already on the table keep
+   * their DOM node; only genuinely new plays animate in.
+   */
+  function renderTrick(box, r) {
+    const want = r.trick.map((x) => `${state.roundIndex}:${r.trickNumber}:${x.seat}:${x.card}`);
+    const have = [...box.children].map((el) => el.dataset.key);
+    const isPrefix = want.length >= have.length && have.every((k, i) => k === want[i]);
+
+    if (!isPrefix) box.innerHTML = '';
+    const existing = isPrefix ? have.length : 0;
+
+    for (let i = existing; i < r.trick.length; i++) {
+      const x = r.trick[i];
+      const c = parse(x.card);
+      const { x: px, y: py } = seatPos(x.seat, 0.52);
+      const el = document.createElement('div');
+      el.className = 'trick-slot';
+      el.dataset.key = want[i];
+      el.dataset.seat = String(x.seat);
+      el.style.left = px + '%';
+      el.style.top = py + '%';
+      el.innerHTML =
+        `<span class="order">${i + 1}</span>` +
+        `<div class="card ${isRed(c.suit) ? 'red' : ''}">` +
+        `<span class="r">${label(c.rank)}</span><span class="s">${SUIT_SYMBOL[c.suit]}</span></div>` +
+        `<div class="who">${esc(x.name)}</div>`;
+      box.appendChild(el);
+    }
+
+    // Win/lose styling is applied to the surviving nodes, not rebuilt.
+    const settled = r.winnerSeat !== undefined;
+    [...box.children].forEach((el, i) => {
+      const seat = Number(el.dataset.seat);
+      el.classList.toggle('led', i === 0);
+      el.classList.toggle('winner', r.winnerSeat === seat);
+      el.classList.toggle('faded', settled && r.winnerSeat !== seat);
+      // While the trick is still open, mark whichever card is on pace to take
+      // it, so you can judge whether it is worth attacking.
+      el.classList.toggle('leading', !settled && r.leadingSeat === seat);
+    });
+  }
+
+  function centerMessage() {
+    const r = state.round;
+    if (!r) return { html: '' };
+    const me = state.you;
+    const secs = Math.max(0, Math.ceil((r.deadline - Date.now()) / 1000));
+    const clock = `<span class="timer-ring${secs <= 5 ? ' urgent' : ''}">${secs}s</span>`;
+
+    if (r.phase === 'bidding') {
+      const waiting = state.players.filter((p) => !p.hasBid).length;
+      const leader = state.players.find((p) => p.seat === r.leadSeat);
+      const leadLine = leader
+        ? `<span class="sub">${me && leader.seat === me.seat ? 'You lead' : esc(leader.name) + ' leads'} the first trick</span>`
+        : '';
+      return { html: `Sealed bidding — ${waiting} still to bid · ${clock}${leadLine}` };
+    }
+    if (r.phase === 'bidReveal') {
+      const total = state.players.reduce((s, p) => s + (p.bid || 0), 0);
+      return { big: true, html: `${total} bid · ${r.tricksTotal} available` };
+    }
+    if (r.phase === 'trickEnd') {
+      const w = state.players.find((p) => p.seat === r.winnerSeat);
+      if (!w) return { html: '' };
+      const card = r.trick.find((x) => x.seat === r.winnerSeat);
+      const withCard = card ? parse(card.card) : null;
+      const why = withCard
+        ? (r.trumpSuit && withCard.suit === r.trumpSuit
+          ? ` with ${label(withCard.rank)}${SUIT_SYMBOL[withCard.suit]} (trump)`
+          : ` with ${label(withCard.rank)}${SUIT_SYMBOL[withCard.suit]}`)
+        : '';
+      const mine = me && r.winnerSeat === me.seat;
+      return {
+        big: true,
+        html: `${mine ? 'You take' : esc(w.name) + ' takes'} the trick` +
+          `<span class="sub">${why.trim()} · they lead the next one</span>`,
+      };
+    }
+    if (r.phase === 'roundEnd') return { big: true, html: 'Round over — scoring…' };
+    if (r.phase === 'playing') {
+      const cur = state.players.find((p) => p.seat === r.currentSeat);
+      if (!cur) return { html: '' };
+      const leading = r.trick.length === 0;
+      const suit = r.ledSuit
+        ? `<span class="sub">Led ${SUIT_SYMBOL[r.ledSuit]} ${SUIT_NAMES[r.ledSuit]} · ` +
+          `${r.trick.length} of ${state.players.length} played</span>`
+        : `<span class="sub">Trick ${r.trickNumber} of ${r.tricksTotal} · any card may be led</span>`;
+      const who = me && cur.seat === me.seat
+        ? (leading ? 'Your lead' : 'Your turn')
+        : `${esc(cur.name)} ${leading ? 'leads' : 'to play'}`;
+      return { html: `${who} · ${clock}${suit}` };
+    }
+    return { html: '' };
+  }
+
+  /* --------------------------------------------------------- bid reveal
+     All bids flip at once in their own phase; no card can be played until it
+     is over, so it is a real beat in the round rather than a line of text. */
+  let revealKey = null;
+
+  function renderRevealOverlay() {
+    const ov = $('revealOverlay');
+    const r = state.round;
+    if (!r || r.phase !== 'bidReveal') { hide(ov); revealKey = null; return; }
+
+    // Build once per round. Rebuilding would restart every flip animation
+    // mid-reveal and make the numbers blink.
+    const key = `${state.roundIndex}`;
+    if (revealKey === key) { show(ov); return; }
+    revealKey = key;
+
+    const total = state.players.reduce((s, p) => s + (p.bid || 0), 0);
+    const tricks = r.tricksTotal;
+    const diff = total - tricks;
+
+    $('revealGrid').innerHTML = state.players
+      .slice()
+      .sort((a, b) => a.seat - b.seat)
+      .map((p, i) => {
+        const cls = ['reveal-player',
+          p.bid === 0 ? 'zero' : '',
+          p.bid >= Math.ceil(tricks / 2) && p.bid > 1 ? 'bold' : '',
+          p.id === selfId() ? 'mine' : ''].filter(Boolean).join(' ');
+        // Stagger the flips so they read left to right.
+        return `<div class="${cls}" style="animation-delay:${i * 70}ms">` +
+          `<div class="bignum">${p.bid}</div>` +
+          `<div class="who">${esc(p.name)}</div></div>`;
+      }).join('');
+
+    $('revealTotal').innerHTML =
+      `<span>${total} bid</span><span class="vs">vs</span>` +
+      `<span>${tricks} trick${tricks === 1 ? '' : 's'} available</span>`;
+
+    const v = $('revealVerdict');
+    if (diff > 0) {
+      v.className = 'reveal-verdict over';
+      v.innerHTML = `Over by ${diff}` +
+        `<span class="why">The table has bid more tricks than exist — at least ` +
+        `${diff === 1 ? 'one player' : 'some players'} must come up short.</span>`;
+    } else if (diff < 0) {
+      v.className = 'reveal-verdict under';
+      v.innerHTML = `Under by ${-diff}` +
+        `<span class="why">${-diff} trick${diff === -1 ? '' : 's'} nobody wants. ` +
+        `Someone is going to be handed ${diff === -1 ? 'one' : 'them'} whether they like it or not.</span>`;
+    } else {
+      v.className = 'reveal-verdict even';
+      v.innerHTML = 'Dead even' +
+        `<span class="why">Bids match the tricks exactly. Everybody can still hit — ` +
+        `and everybody can still be wrecked.</span>`;
+    }
+    show(ov);
+  }
+
+  /* ------------------------------------------------------- deal animation
+     Purely cosmetic: a quick shuffle and a card flicked to every seat, so a
+     new round announces itself instead of just appearing. */
+  let dealingUntil = 0;
+
+  function playDealAnimation() {
+    const layer = $('dealLayer');
+    if (!layer || !state || !state.players.length) return;
+    const felt = $('felt');
+    const w = felt.clientWidth || 800;
+    const h = felt.clientHeight || 400;
+
+    layer.innerHTML = '<div class="deal-stack"></div>';
+    dealingUntil = Date.now() + 1150;
+    felt.classList.add('dealing'); // hides the centre text so the deck is clear
+
+    const cardsEach = Math.min(3, (state.round && state.round.cardsPerHand) || 1);
+    let i = 0;
+    for (let pass = 0; pass < cardsEach; pass++) {
+      for (const p of state.players) {
+        const { x, y } = seatPos(p.seat, 0.92);
+        const el = document.createElement('div');
+        el.className = 'deal-card';
+        el.style.setProperty('--dx', ((x - 50) / 100) * w + 'px');
+        el.style.setProperty('--dy', ((y - 50) / 100) * h + 'px');
+        el.style.setProperty('--rot', (pass * 9 - 9) + 'deg');
+        el.style.animationDelay = (500 + i * 22) + 'ms';
+        layer.appendChild(el);
+        i++;
+      }
+    }
+    setTimeout(() => {
+      layer.innerHTML = '';
+      felt.classList.remove('dealing');
+      render();
+    }, 1200);
+  }
+
+  /** A small replay of the previous trick, so a fast table stays followable. */
+  function renderLastTrick() {
+    const box = $('lastTrick');
+    const r = state.round;
+    const lt = r && r.lastTrick;
+    if (!lt || !lt.plays.length) { box.innerHTML = ''; return; }
+    const winner = state.players.find((p) => p.seat === lt.winnerSeat);
+    box.innerHTML =
+      `<div class="lt-head">Last trick — ${winner ? esc(winner.name) : '?'} took it</div>` +
+      `<div class="lt-cards">` +
+      lt.plays.map((x) => {
+        const c = parse(x.card);
+        const won = x.seat === lt.winnerSeat;
+        return `<div class="lt-item${won ? ' won' : ''}">` +
+          `<div class="card xs ${isRed(c.suit) ? 'red' : ''}">` +
+          `<span class="r">${label(c.rank)}</span><span class="s">${SUIT_SYMBOL[c.suit]}</span></div>` +
+          `<div class="nm">${esc(x.name)}</div></div>`;
+      }).join('') +
+      `</div>`;
+  }
+
+  // ------------------------------------------------------------- hand
+  function orderedHand() {
+    const hand = state.yourHand || [];
+    const set = new Set(hand);
+    const out = myOrder.filter((id) => set.has(id));
+    for (const id of hand) if (!out.includes(id)) out.push(id);
+    myOrder = out;
+    return out;
+  }
+
+  function renderHand() {
+    const box = $('hand');
+    const r = state.round;
+    const hint = $('handHint');
+    const lbl = $('handLabel');
+
+    if (r && r.blind) {
+      const me = state.players.find((p) => p.id === selfId());
+      lbl.textContent = 'Your card (hidden from you)';
+      box.innerHTML = me && me.handCount ? '<div class="card back"></div>' : '';
+      hint.textContent = 'Blind round: you can see everyone else’s card but not your own.';
+      if (r.phase === 'playing' && state.you && r.currentSeat === state.you.seat) {
+        const el = box.querySelector('.card');
+        if (el) {
+          el.classList.add('playable');
+          el.style.cursor = 'pointer';
+          el.onclick = () => {
+            // Exactly one card is held, and the server knows which.
+            sendMsg({ t: 'play', card: (state.legal && state.legal[0]) || '' });
+          };
+          hint.textContent = 'Your turn — click to play your hidden card.';
+        }
+      }
+      return;
+    }
+
+    lbl.textContent = 'Your hand';
+    const hand = orderedHand();
+    const legal = state.legal ? new Set(state.legal) : null;
+    const myTurn = !!(r && r.phase === 'playing' && state.you && r.currentSeat === state.you.seat);
+
+    box.innerHTML = '';
+    for (const id of hand) {
+      const c = parse(id);
+      const el = document.createElement('div');
+      const playable = myTurn && legal && legal.has(id);
+      el.className = 'card' + (isRed(c.suit) ? ' red' : '') +
+        (playable ? ' playable' : '') +
+        (myTurn && legal && !legal.has(id) ? ' illegal' : '');
+      el.dataset.card = id;
+      el.draggable = true;
+      el.innerHTML = `<span class="r">${label(c.rank)}</span><span class="s">${SUIT_SYMBOL[c.suit]}</span>`;
+
+      el.addEventListener('click', () => {
+        if (!myTurn) return toast('Not your turn yet.');
+        if (legal && !legal.has(id)) {
+          return toast(`You must follow ${SUIT_NAMES[r.ledSuit]} — you still hold one.`);
+        }
+        sendMsg({ t: 'play', card: id });
+      });
+
+      attachDrag(el, id);
+      box.appendChild(el);
+    }
+
+    if (!myTurn) {
+      hint.textContent = 'Drag cards to reorder them.';
+    } else if (!r.ledSuit) {
+      hint.textContent = 'You lead — play any card. Drag to reorder.';
+    } else if (legal && legal.size === hand.length) {
+      // Void in the led suit: everything is legal, which is worth saying
+      // outright rather than leaving the player to work out.
+      hint.textContent = `You have no ${SUIT_NAMES[r.ledSuit]} — play anything.` +
+        (r.trumpSuit ? ` A ${SUIT_NAMES[r.trumpSuit]} would take the trick.` : '');
+    } else {
+      hint.textContent =
+        `You must follow ${SUIT_SYMBOL[r.ledSuit]} ${SUIT_NAMES[r.ledSuit]}. Drag to reorder.`;
+    }
+  }
+
+  // Pointer-based drag reordering (works with mouse and touch).
+  let dragId = null;
+  function attachDrag(el, id) {
+    el.addEventListener('dragstart', (e) => {
+      dragId = id;
+      el.classList.add('dragging');
+      try { e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; } catch { /* older browsers */ }
+    });
+    el.addEventListener('dragend', () => {
+      dragId = null;
+      el.classList.remove('dragging');
+      clearDropHints();
+    });
+    el.addEventListener('dragover', (e) => {
+      if (!dragId || dragId === id) return;
+      e.preventDefault();
+      clearDropHints();
+      const before = e.offsetX < el.offsetWidth / 2;
+      el.classList.add(before ? 'drop-left' : 'drop-right');
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-left', 'drop-right'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!dragId || dragId === id) return;
+      const before = e.offsetX < el.offsetWidth / 2;
+      reorder(dragId, id, before);
+      clearDropHints();
+    });
+
+    // Touch fallback: long-press-free swap by dragging across cards.
+    let startX = null;
+    el.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    el.addEventListener('touchend', (e) => {
+      if (startX === null) return;
+      const endX = e.changedTouches[0].clientX;
+      if (Math.abs(endX - startX) < 24) { startX = null; return; }
+      const target = document.elementFromPoint(endX, e.changedTouches[0].clientY);
+      const card = target && target.closest ? target.closest('.card[data-card]') : null;
+      if (card && card.dataset.card !== id) {
+        reorder(id, card.dataset.card, endX < startX);
+        e.preventDefault();
+      }
+      startX = null;
+    });
+  }
+
+  function clearDropHints() {
+    document.querySelectorAll('.hand .card').forEach((c) => c.classList.remove('drop-left', 'drop-right'));
+  }
+
+  function reorder(movingId, targetId, before) {
+    const arr = orderedHand().filter((x) => x !== movingId);
+    const at = arr.indexOf(targetId);
+    if (at === -1) return;
+    arr.splice(before ? at : at + 1, 0, movingId);
+    myOrder = arr;
+    sendMsg({ t: 'reorder', order: arr });
+    renderHand();
+  }
+
+  function sortBy(mode) {
+    const r = state.round;
+    const suits = ['S', 'H', 'D', 'C'];
+    const trump = r && r.trumpSuit;
+    const arr = orderedHand().slice().map(parse);
+    if (mode === 'suit') {
+      arr.sort((a, b) => {
+        const sa = trump && a.suit === trump ? -1 : suits.indexOf(a.suit);
+        const sb = trump && b.suit === trump ? -1 : suits.indexOf(b.suit);
+        return sa - sb || b.rank - a.rank;
+      });
+    } else {
+      arr.sort((a, b) => b.rank - a.rank || suits.indexOf(a.suit) - suits.indexOf(b.suit));
+    }
+    myOrder = arr.map((c) => c.id);
+    sendMsg({ t: 'reorder', order: myOrder });
+    renderHand();
+  }
+
+  // ------------------------------------------------------------- bidding
+  function bidButtonsInto(box, maxBid) {
+    if (box.childElementCount === maxBid + 1) return;
+    box.innerHTML = '';
+    for (let i = 0; i <= maxBid; i++) {
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.textContent = i;
+      b.onclick = () => sendMsg({ t: 'bid', n: i });
+      box.appendChild(b);
+    }
+  }
+
+  /**
+   * On the blind round the whole point is reading the other nine cards before
+   * you commit, so the bid controls go in the hand dock and the felt is left
+   * completely unobscured. Every other round uses the panel over the felt,
+   * where your own hand is what matters and is visible below it.
+   */
+  function renderBidOverlay() {
+    const r = state.round;
+    const ov = $('bidOverlay');
+    const dock = $('bidDock');
+
+    if (!r || r.phase !== 'bidding') { hide(ov); dock.classList.remove('show'); return; }
+
+    // Hold the bid UI back until the deal animation has finished, so the round
+    // opens with the cards arriving rather than a panel appearing over them.
+    if (Date.now() < dealingUntil) { hide(ov); dock.classList.remove('show'); return; }
+
+    const already = state.players.filter((p) => p.hasBid).length;
+    const leader = state.players.find((p) => p.seat === r.leadSeat);
+    const iLead = !!(state.you && leader && leader.seat === state.you.seat);
+    const leadLine = leader
+      ? `<b>${iLead ? 'You lead' : esc(leader.name) + ' leads'} the first trick.</b> `
+      : '';
+    const left = state.players.filter((p) => !p.hasBid).map((p) => p.name);
+    const secs = Math.max(0, Math.ceil((r.deadline - Date.now()) / 1000));
+    const clock = `<span class="timer-ring${secs <= 5 ? ' urgent' : ''}">${secs}s</span>`;
+
+    if (r.blind) {
+      hide(ov);
+      dock.classList.add('show');
+      if (state.yourBid !== null) {
+        dock.innerHTML =
+          `<div class="bd-title">You bid ${state.yourBid}</div>` +
+          `<div class="bd-sub">${left.length ? 'Waiting on ' + left.map(esc).join(', ') + '…' : 'Revealing bids…'}</div>`;
+        return;
+      }
+      if (!dock.querySelector('#bidDockButtons')) {
+        dock.innerHTML =
+          `<div class="bd-title">Blind round — will you take the trick?</div>` +
+          `<div class="bd-sub" id="bidDockSub"></div>` +
+          `<div class="bid-buttons" id="bidDockButtons"></div>`;
+      }
+      $('bidDockSub').innerHTML =
+        leadLine +
+        `Every other player's card is face up on the table. Yours is not. ` +
+        (r.noTrump ? 'No trump this round. ' : `${SUIT_SYMBOL[r.trumpSuit]} ${SUIT_NAMES[r.trumpSuit]} is trump. `) +
+        `${already} of ${state.players.length} have bid · ${clock}`;
+      bidButtonsInto($('bidDockButtons'), r.maxBid);
+      return;
+    }
+
+    dock.classList.remove('show');
+    show(ov);
+
+    if (state.yourBid !== null) {
+      $('bidButtons').innerHTML = '';
+      $('bidSub').textContent = `You bid ${state.yourBid}.`;
+      $('bidWaiting').textContent = left.length
+        ? `Waiting on ${left.join(', ')}…`
+        : 'Revealing bids…';
+      return;
+    }
+
+    $('bidSub').innerHTML =
+      leadLine +
+      `How many of the ${r.tricksTotal} trick${r.tricksTotal === 1 ? '' : 's'} will you take? ` +
+      (r.noTrump ? 'No trump this round. ' : `${SUIT_NAMES[r.trumpSuit]} is trump. `) + clock;
+    bidButtonsInto($('bidButtons'), r.maxBid);
+    $('bidWaiting').textContent =
+      `${already} of ${state.players.length} have bid. All bids reveal together.`;
+  }
+
+  // ------------------------------------------------------------- results
+  let boardRequestedForGame = false;
+
+  function renderResultOverlay() {
+    const ov = $('resultOverlay');
+    const r = state.round;
+
+    if (state.status === 'finished') {
+      const sorted = state.players.slice().sort((a, b) => b.score - a.score);
+      const top = sorted[0].score;
+      const winners = sorted.filter((p) => p.score === top);
+      $('resultTitle').textContent = winners.length === 1
+        ? `${winners[0].name} wins!`
+        : `Tie at ${top} points`;
+      $('resultBody').innerHTML = resultTable(
+        sorted.map((p) => ({ name: p.name, total: p.score })), true);
+      $('resultSub').textContent = selfId() === room.hostId
+        ? 'Play again keeps everyone seated and resets the scores.'
+        : 'Waiting for the host to start another game.';
+      $('endButtons').style.display = '';
+      $('btnRematch').style.display = selfId() === room.hostId ? '' : 'none';
+      if (!boardRequestedForGame) { boardRequestedForGame = true; setTimeout(requestBoard, 600); }
+      show(ov);
+      return;
+    }
+    boardRequestedForGame = false;
+
+    if (r && r.phase === 'roundEnd' && r.results) {
+      $('resultTitle').textContent = `Round ${state.roundIndex + 1} scored`;
+      $('resultBody').innerHTML = resultTable(r.results, false);
+      const nextIdx = state.roundIndex + 1;
+      $('resultSub').textContent = nextIdx < state.totalRounds
+        ? `Next: round ${nextIdx + 1} with ${state.schedule[nextIdx]} card${state.schedule[nextIdx] === 1 ? '' : 's'} each.`
+        : 'That was the final round.';
+      $('endButtons').style.display = 'none';
+      $('careerBox').classList.remove('show');
+      show(ov);
+      return;
+    }
+    hide(ov);
+  }
+
+  function resultTable(rows, finalOnly) {
+    let html = '<table class="result-table"><thead><tr><th>Player</th>';
+    if (!finalOnly) html += '<th class="num">Bid</th><th class="num">Took</th><th class="num">Points</th>';
+    html += '<th class="num">Total</th></tr></thead><tbody>';
+    for (const x of rows) {
+      html += `<tr><td>${esc(x.name)}</td>`;
+      if (!finalOnly) {
+        const cls = x.gained >= 10 ? 'gain-hit' : x.gained === 0 ? 'gain-zero' : 'gain-over';
+        html += `<td class="num">${x.bid}</td><td class="num">${x.tricksWon}</td>` +
+          `<td class="num ${cls}">+${x.gained}</td>`;
+      }
+      html += `<td class="num">${x.total}</td></tr>`;
+    }
+    return html + '</tbody></table>';
+  }
+
+  // -------------------------------------------------------------- chat
+  /* Chat is unfiltered by request. The one thing done to every message is
+     HTML escaping — without it any player could inject script into everyone
+     else's browser and read their hand. That is an XSS defence, not a word
+     filter: the text itself is passed through completely untouched. */
+  let chatMsgs = [];
+  let chatUnread = 0;
+  let chatCollapsed = false;
+
+  function pushChat(msg) {
+    chatMsgs.push(msg);
+    if (chatMsgs.length > 120) chatMsgs.shift();
+    if (!msg.system && msg.playerId !== selfId()) {
+      Sound.play('chat');
+      if (chatCollapsed) chatUnread += 1;
+    }
+    renderChat();
+  }
+
+  function chatHTML() {
+    if (!chatMsgs.length) {
+      return '<div class="chat-empty">No messages yet. Say hello.</div>';
+    }
+    return chatMsgs.map((m) => {
+      if (m.system) return `<div class="chat-msg system">${esc(m.text)}</div>`;
+      const mine = m.playerId === selfId() ? ' mine' : '';
+      return `<div class="chat-msg${mine}">` +
+        `<span class="who">${esc(m.from)}</span>` +
+        `<span class="body">${esc(m.text)}</span></div>`;
+    }).join('');
+  }
+
+  function renderChat() {
+    const html = chatHTML();
+    for (const id of ['chatLog', 'chatLog2']) {
+      const box = $(id);
+      if (!box) continue;
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+      box.innerHTML = html;
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    }
+    const btn = $('btnChatToggle');
+    if (btn) {
+      btn.innerHTML = (chatCollapsed ? 'Show' : 'Hide') +
+        (chatUnread ? `<span class="chat-badge">${chatUnread}</span>` : '');
+    }
+  }
+
+  function sendChat(input) {
+    const text = input.value;
+    if (!text.trim()) return;
+    sendMsg({ t: 'chat', text });
+    input.value = '';
+  }
+
+  // -------------------------------------------------------- leaderboard
+  function requestBoard() {
+    sendMsg({ t: 'leaderboard', deviceId });
+  }
+
+  function pct(x) { return `${Math.round(x * 100)}%`; }
+
+  function renderLeaderboard(rows, mine) {
+    const box = $('leaderboard');
+    if (!rows || !rows.length) {
+      box.innerHTML = '<p class="empty">No games recorded yet. Finish one and it shows up here.</p>';
+    } else {
+      let html = '<table><thead><tr><th></th><th>Player</th><th class="num">W</th>' +
+        '<th class="num">Games</th><th class="num">Avg</th><th class="num">Best</th>' +
+        '<th class="num">On bid</th></tr></thead><tbody>';
+      rows.forEach((r, i) => {
+        const me = r.isMe ? ' class="me"' : '';
+        html += `<tr${me}><td class="rankcell">${i + 1}</td><td>${esc(r.name)}</td>` +
+          `<td class="num">${r.wins}</td><td class="num">${r.games}</td>` +
+          `<td class="num">${r.avgScore.toFixed(0)}</td><td class="num">${r.bestScore}</td>` +
+          `<td class="num">${pct(r.accuracy)}</td></tr>`;
+      });
+      box.innerHTML = html + '</tbody></table>';
+    }
+
+    const ms = $('myStats');
+    if (mine) {
+      ms.classList.add('show');
+      ms.innerHTML =
+        `<b>${esc(mine.name)}</b> — rank <b>${mine.rank}</b> of ${mine.of}` +
+        `<div class="row">` +
+        `<span><b>${mine.games}</b> ${mine.games === 1 ? 'game' : 'games'}</span>` +
+        `<span><b>${mine.wins}</b> wins (${pct(mine.winRate)})</span>` +
+        `<span>avg <b>${mine.avgScore.toFixed(0)}</b></span>` +
+        `<span>best <b>${mine.bestScore}</b></span>` +
+        `<span>hit bid <b>${pct(mine.accuracy)}</b></span>` +
+        `<span><b>${mine.tricks}</b> tricks</span>` +
+        `</div>`;
+    } else {
+      ms.classList.remove('show');
+    }
+
+    // Also reflect career stats on the end-of-game screen.
+    const cb = $('careerBox');
+    if (cb && mine && state && state.status === 'finished') {
+      cb.classList.add('show');
+      const g = mine.games === 1 ? 'game' : 'games';
+      const w = mine.wins === 1 ? 'win' : 'wins';
+      cb.innerHTML = `All-time: <b>${mine.games}</b> ${g}, <b>${mine.wins}</b> ${w}, ` +
+        `rank <b>${mine.rank}</b> of ${mine.of}, best score <b>${mine.bestScore}</b>.`;
+    }
+  }
+
+  // ------------------------------------------------------------- wiring
+  $('nameInput').value = savedName;
+
+  $('btnQuickPlay').onclick = () => sendMsg({ t: 'quickPlay', name: nameValue(), deviceId });
+  $('btnCreate').onclick = () =>
+    sendMsg({ t: 'createRoom', name: nameValue(), private: $('privateCheck').checked, deviceId });
+  $('btnJoin').onclick = () => {
+    const code = $('codeInput').value.trim().toUpperCase();
+    if (!code) return toast('Enter a table code first.');
+    sendMsg({ t: 'joinRoom', code, name: nameValue(), deviceId });
+  };
+  $('codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnJoin').click(); });
+
+  $('btnStart').onclick = () => sendMsg({ t: 'start' });
+  $('btnLeave').onclick = () => sendMsg({ t: 'leaveRoom' });
+  $('btnCopy').onclick = async () => {
+    const url = `${location.origin}/?code=${room.code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Invite link copied.');
+    } catch {
+      toast(url);
+    }
+  };
+
+  $('btnSortSuit').onclick = () => sortBy('suit');
+  $('btnSortRank').onclick = () => sortBy('rank');
+  $('btnScoreToggle').onclick = () => $('scoreboard').classList.toggle('open');
+  $('btnBackToLobby').onclick = () => {
+    hide($('resultOverlay'));
+    sendMsg({ t: 'leaveRoom' });
+  };
+  $('btnRematch').onclick = () => {
+    hide($('resultOverlay'));
+    sendMsg({ t: 'rematch' });
+  };
+
+  // chat
+  $('chatForm').addEventListener('submit', (e) => { e.preventDefault(); sendChat($('chatInput')); });
+  $('chatForm2').addEventListener('submit', (e) => { e.preventDefault(); sendChat($('chatInput2')); });
+  $('btnChatToggle').onclick = () => {
+    chatCollapsed = !chatCollapsed;
+    if (!chatCollapsed) chatUnread = 0;
+    document.querySelector('#sidebar .chat').classList.toggle('collapsed', chatCollapsed);
+    renderChat();
+  };
+  $('chatInput').addEventListener('focus', () => { chatUnread = 0; renderChat(); });
+
+  // sound
+  const soundBtn = $('btnSound');
+  const paintSound = () => {
+    soundBtn.textContent = Sound.enabled ? '🔊' : '🔇';
+    soundBtn.title = Sound.enabled ? 'Sound on — click to mute' : 'Muted — click to unmute';
+  };
+  soundBtn.onclick = () => { Sound.toggle(); paintSound(); };
+  paintSound();
+  // Browsers refuse to play audio until the user has interacted with the page.
+  document.addEventListener('pointerdown', () => Sound.warm(), { once: true });
+  document.addEventListener('keydown', () => Sound.warm(), { once: true });
+
+  // leaderboard
+  $('btnRefreshBoard').onclick = requestBoard;
+
+  // Prefill a code from an invite link.
+  const urlCode = new URLSearchParams(location.search).get('code');
+  if (urlCode) $('codeInput').value = urlCode.toUpperCase();
+
+  // Repaint the countdowns once a second without a server round-trip.
+  setInterval(() => {
+    if (!state || !state.round) return;
+    if (currentScreen() !== 'screen-game') return;
+    // Only the clock changes between server updates; leave the trick alone so
+    // the "took it" animation is not restarted every second.
+    paintStatus();
+    if (state.round.phase === 'bidding' && state.yourBid === null) renderBidOverlay();
+  }, 1000);
+
+  connect();
+})();
+
+</script>
+</body>
+</html>

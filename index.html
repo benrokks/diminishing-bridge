@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Diminishing Bridge</title>
+<meta name="description" content="A real-time bidding trick-taking card game for 5 to 10 players." />
+<link rel="stylesheet" href="/style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127183;</text></svg>" />
+</head>
+<body>
+
+<!-- ============================= LANDING ============================= -->
+<section id="screen-landing" class="screen active">
+  <div class="landing-wrap">
+    <header class="brand">
+      <h1>Diminishing Bridge</h1>
+    </header>
+
+    <div class="panel">
+      <label class="field">
+        <span>Your name</span>
+        <input id="nameInput" maxlength="14" placeholder="e.g. Ben" autocomplete="nickname" />
+      </label>
+
+      <div class="btn-row">
+        <button id="btnQuickPlay" class="btn primary">Quick Play</button>
+        <button id="btnCreate" class="btn">Create table</button>
+      </div>
+
+      <label class="checkline">
+        <input type="checkbox" id="privateCheck" />
+        <span>Make my table private (code only, hidden from the list)</span>
+      </label>
+
+      <div class="join-row">
+        <input id="codeInput" class="code-input" maxlength="6" placeholder="CODE" autocapitalize="characters" />
+        <button id="btnJoin" class="btn">Join by code</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Open tables</h2>
+        <span class="hint">5–10 players · refreshes automatically</span>
+      </div>
+      <div id="roomList" class="room-list"><p class="empty">Looking for tables…</p></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>All-time standings</h2>
+        <button id="btnRefreshBoard" class="btn tiny">Refresh</button>
+      </div>
+      <div id="myStats" class="my-stats"></div>
+      <div id="leaderboard" class="leaderboard"><p class="empty">No games recorded yet.</p></div>
+      <p class="hint" style="margin-top:10px">Your record is tied to this browser, not your
+        nickname, so nobody can take it by copying your name.</p>
+    </div>
+
+    <details class="panel rules">
+      <summary>How to play</summary>
+      <div class="rules-body">
+        <p><strong>The ladder.</strong> Hands shrink one card per round down to a single card, then grow back to where they started. With 10 players that is 5·4·3·2·1·2·3·4·5.</p>
+        <p><strong>Trump.</strong> After the deal, one card is flipped. Its suit is trump for the round. If that suit was already trump last round, the round is played with <em>no trump</em>.</p>
+        <p><strong>Bidding.</strong> Everyone secretly bids how many tricks they will take, then all bids are revealed at once. Nobody sees a bid before committing their own.</p>
+        <p><strong>Following suit.</strong> You must play the led suit if you hold it. Only when void may you play anything else. Any trump beats any non-trump — the 2 of trump beats the ace of the led suit.</p>
+        <p><strong>Scoring.</strong> Hit your bid exactly for 10 + your bid. Go over and you score 1 per trick taken. Fall short and you score nothing.</p>
+        <p><strong>The blind round.</strong> On the single-card round you can see everyone else's card but not your own.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================== LOBBY ============================== -->
+<section id="screen-lobby" class="screen">
+  <div class="landing-wrap">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Table <span id="lobbyCode" class="code-chip"></span></h2>
+        <button id="btnCopy" class="btn tiny">Copy invite</button>
+      </div>
+      <p id="lobbyPrivacy" class="hint"></p>
+      <div id="lobbyPlayers" class="lobby-players"></div>
+      <p id="lobbyStatus" class="lobby-status"></p>
+      <div class="btn-row">
+        <button id="btnStart" class="btn primary" disabled>Start game</button>
+        <button id="btnLeave" class="btn ghost">Leave</button>
+      </div>
+      <p id="lobbyPreview" class="hint"></p>
+    </div>
+
+    <div class="panel">
+      <div class="chat" id="lobbyChat">
+        <div class="chat-head"><span>Table chat</span></div>
+        <div id="chatLog2" class="chat-log"></div>
+        <form id="chatForm2" class="chat-form" autocomplete="off">
+          <input id="chatInput2" maxlength="400" placeholder="Say something…" />
+          <button class="btn tiny" type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== GAME =============================== -->
+<section id="screen-game" class="screen">
+  <div class="game-grid">
+
+    <aside class="sidebar" id="sidebar">
+      <div class="side-head">
+        <span class="code-chip" id="gameCode"></span>
+        <div class="side-tools">
+          <button id="btnSound" class="btn tiny" title="Toggle sound">🔊</button>
+          <button id="btnScoreToggle" class="btn tiny">Scores</button>
+        </div>
+      </div>
+      <div id="roundInfo" class="round-info"></div>
+      <div id="scoreboard" class="scoreboard"></div>
+      <div id="lastTrick" class="last-trick"></div>
+      <div id="logBox" class="log"></div>
+
+      <div class="chat">
+        <div class="chat-head">
+          <span>Table chat</span>
+          <button id="btnChatToggle" class="btn tiny">Hide</button>
+        </div>
+        <div id="chatLog" class="chat-log"></div>
+        <form id="chatForm" class="chat-form" autocomplete="off">
+          <input id="chatInput" maxlength="400" placeholder="Say something…" />
+          <button class="btn tiny" type="submit">Send</button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="table-area">
+      <div class="table-felt" id="felt">
+        <div class="trump-corner" id="trumpBlock"></div>
+        <div class="deal-layer" id="dealLayer"></div>
+        <div class="trick-layer" id="trickLayer"></div>
+        <div class="table-center" id="tableCenter">
+          <div class="center-msg" id="centerMsg"></div>
+        </div>
+        <div id="seats"></div>
+
+        <!-- Bidding sits over the felt only, never over your hand: you have to
+             be able to see your cards while deciding what to bid. -->
+        <div id="bidOverlay" class="overlay felt-only">
+          <div class="bid-card">
+            <h2>Place your bid</h2>
+            <p id="bidSub" class="hint"></p>
+            <div id="bidButtons" class="bid-buttons"></div>
+            <p id="bidWaiting" class="bid-waiting"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="hand-dock">
+        <!-- On phones the felt is too small to hold the status text without it
+             landing on the played cards, so it moves down here instead. -->
+        <div class="status-bar" id="statusBar"></div>
+        <div class="hand-bar">
+          <div class="hand-label" id="handLabel">Your hand</div>
+          <div class="trump-chip" id="trumpChip"></div>
+          <div class="hand-tools">
+            <button id="btnSortSuit" class="btn tiny">Sort by suit</button>
+            <button id="btnSortRank" class="btn tiny">Sort by rank</button>
+          </div>
+        </div>
+        <!-- On the blind round the bid controls live down here instead of over
+             the felt, so the other players' face-up cards stay visible while
+             you decide. -->
+        <div id="bidDock" class="bid-dock"></div>
+        <div id="hand" class="hand"></div>
+        <p class="hand-hint" id="handHint">Drag cards to reorder them.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- the bids flipping over together -->
+  <div id="revealOverlay" class="overlay reveal">
+    <div class="reveal-card">
+      <div class="reveal-title">Bids are in</div>
+      <div id="revealGrid" class="reveal-grid"></div>
+      <div id="revealTotal" class="reveal-total"></div>
+      <div id="revealVerdict" class="reveal-verdict"></div>
+    </div>
+  </div>
+
+  <!-- round / game results overlay -->
+  <div id="resultOverlay" class="overlay">
+    <div class="bid-card wide">
+      <h2 id="resultTitle"></h2>
+      <div id="resultBody"></div>
+      <p id="resultSub" class="hint"></p>
+      <div id="careerBox" class="career-box"></div>
+      <div class="btn-row" id="endButtons" style="display:none; margin-top:14px">
+        <button id="btnRematch" class="btn primary">Play again</button>
+        <button id="btnBackToLobby" class="btn ghost">Back to start</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</section>
+
+<script src="/app.js"></script>
+</body>
+</html>

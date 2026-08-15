@@ -1,0 +1,740 @@
+/* ============================ design tokens ============================ */
+:root {
+  --bg: #0d1117;
+  --bg-raised: #161b22;
+  --bg-input: #0b0f14;
+  --line: #2a313c;
+  --line-soft: #1e242c;
+  --text: #e8edf4;
+  --text-dim: #97a3b4;
+  --text-faint: #6b7686;
+  --accent: #4f9dff;
+  --accent-dim: #1f4f8f;
+  --gold: #e8b923;
+  --good: #3fb950;
+  --bad: #f85149;
+  --felt-a: #175c43;
+  --felt-b: #0d3a2a;
+  --card-face: #fbfaf7;
+  --card-red: #c8262c;
+  --card-black: #16181d;
+  --radius: 12px;
+  --shadow: 0 6px 24px rgba(0, 0, 0, .45);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+button, input { font: inherit; color: inherit; }
+
+.screen { display: none; height: 100%; }
+.screen.active { display: block; }
+
+/* ============================== controls =============================== */
+.btn {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .15s, border-color .15s, transform .05s;
+}
+.btn:hover:not(:disabled) { background: #1e2530; border-color: #3a4351; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.primary { background: var(--accent-dim); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { background: #2a63ad; }
+.btn.ghost { background: transparent; }
+.btn.tiny { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+
+.field { display: block; margin-bottom: 14px; }
+.field span { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+.field input, .code-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  outline: none;
+}
+.field input:focus, .code-input:focus { border-color: var(--accent); }
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-row .btn { flex: 1 1 auto; }
+
+.checkline {
+  display: flex; align-items: center; gap: 9px;
+  margin: 14px 0; font-size: 13px; color: var(--text-dim); cursor: pointer;
+}
+.checkline input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.join-row { display: flex; gap: 10px; }
+.join-row .code-input {
+  flex: 0 1 130px; text-transform: uppercase; letter-spacing: .18em;
+  text-align: center; font-weight: 700;
+}
+
+/* =============================== landing =============================== */
+.landing-wrap {
+  max-width: 640px; margin: 0 auto; padding: 32px 18px 64px;
+  height: 100%; overflow-y: auto;
+}
+.brand { text-align: center; margin-bottom: 30px; }
+.brand h1 {
+  margin: 0; font-size: 38px; letter-spacing: -.02em;
+  background: linear-gradient(180deg, #fff, #9fb6d0);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; margin-bottom: 12px;
+}
+.panel-head h2 { margin: 0; font-size: 17px; }
+.hint { color: var(--text-faint); font-size: 12.5px; margin: 0; }
+
+.room-list { display: flex; flex-direction: column; gap: 8px; }
+.room-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 11px 13px;
+}
+.room-row .rc { font-weight: 700; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.room-row .rn { color: var(--text-faint); font-size: 12.5px; flex: 1; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.room-row .rp { color: var(--text-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+.empty { color: var(--text-faint); font-size: 13px; margin: 4px 0; }
+
+.rules summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+.rules-body p { color: var(--text-dim); font-size: 13.5px; line-height: 1.55; }
+.rules-body strong { color: var(--text); }
+
+.code-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .18em; background: var(--bg-input);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 3px 9px; font-size: 15px; font-weight: 700;
+}
+
+.lobby-players { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.chip {
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 13px; font-size: 13.5px;
+}
+.chip.host { border-color: var(--gold); }
+.lobby-status { color: var(--text-dim); font-size: 14px; margin: 12px 0; }
+
+/* ============================= game layout ============================= */
+.game-grid { display: flex; height: 100%; }
+
+.sidebar {
+  width: 268px; flex: 0 0 268px;
+  border-right: 1px solid var(--line-soft);
+  background: var(--bg-raised);
+  padding: 14px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.side-head { display: flex; justify-content: space-between; align-items: center; }
+
+.round-info { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+.round-info .big { color: var(--text); font-size: 15px; font-weight: 700; display: block; }
+.round-info .trump-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 8px; padding: 4px 9px; margin-top: 6px; font-weight: 700; color: var(--text);
+}
+.round-info .trump-tag.none { border-color: var(--gold); color: var(--gold); }
+.round-info .ladder { font-variant-numeric: tabular-nums; letter-spacing: .06em; font-size: 12px; }
+.round-info .ladder b { color: var(--accent); }
+
+.scoreboard { border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.scoreboard table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.scoreboard th {
+  text-align: left; color: var(--text-faint); font-weight: 600;
+  padding: 3px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+}
+.scoreboard td { padding: 4px; border-top: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.scoreboard td.num { text-align: right; }
+.scoreboard tr.me td { color: var(--accent); font-weight: 700; }
+.scoreboard .lead td:first-child::after { content: " ♛"; color: var(--gold); }
+
+.log {
+  border-top: 1px solid var(--line-soft); padding-top: 10px;
+  font-size: 12px; color: var(--text-faint); line-height: 1.5;
+  display: flex; flex-direction: column-reverse; gap: 5px;
+  max-height: 190px; overflow-y: auto;
+}
+
+.side-tools { display: flex; gap: 6px; }
+
+/* ================================ chat ================================= */
+.chat {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: auto;
+}
+.chat-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); font-weight: 600;
+}
+.chat.collapsed .chat-log, .chat.collapsed .chat-form { display: none; }
+
+.chat-log {
+  height: 168px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+  font-size: 12.5px; line-height: 1.45;
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 9px; padding: 9px;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.chat-msg .who { font-weight: 700; color: var(--accent); margin-right: 5px; }
+.chat-msg.mine .who { color: var(--gold); }
+.chat-msg .body { color: var(--text); white-space: pre-wrap; }
+.chat-msg.system { color: var(--text-faint); font-style: italic; }
+.chat-empty { color: var(--text-faint); font-size: 12px; }
+
+.chat-form { display: flex; gap: 6px; }
+.chat-form input {
+  flex: 1; min-width: 0; background: var(--bg-input);
+  border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px;
+  font-size: 13px; outline: none;
+}
+.chat-form input:focus { border-color: var(--accent); }
+
+.chat-badge {
+  display: inline-block; min-width: 16px; padding: 0 5px;
+  background: var(--accent); color: #fff; border-radius: 999px;
+  font-size: 10px; font-weight: 700; text-align: center; margin-left: 6px;
+}
+
+/* ============================ leaderboard ============================== */
+.leaderboard table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.leaderboard th {
+  text-align: left; color: var(--text-faint); font-weight: 600; padding: 4px 5px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em;
+}
+.leaderboard td { padding: 6px 5px; border-top: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.leaderboard td.num { text-align: right; }
+.leaderboard tr.me td { color: var(--accent); font-weight: 700; }
+.leaderboard .rankcell { color: var(--text-faint); width: 26px; }
+.leaderboard tr:nth-child(1) .rankcell { color: var(--gold); }
+
+.my-stats {
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 11px 13px; margin-bottom: 12px;
+  font-size: 12.5px; color: var(--text-dim); display: none;
+}
+.my-stats.show { display: block; }
+.my-stats b { color: var(--text); }
+.my-stats .row { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 5px; }
+
+.career-box {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft);
+  font-size: 12.5px; color: var(--text-dim); display: none;
+}
+.career-box.show { display: block; }
+.career-box b { color: var(--text); }
+
+.table-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+
+/* =============================== the felt ============================== */
+.table-felt {
+  flex: 1; position: relative; margin: 16px; border-radius: 50% / 26%;
+  background:
+    radial-gradient(ellipse at 50% 42%, var(--felt-a) 0%, var(--felt-b) 72%, #08251b 100%);
+  border: 9px solid #4a3218;
+  box-shadow: inset 0 0 70px rgba(0,0,0,.55), var(--shadow);
+  min-height: 340px;
+}
+
+.table-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; pointer-events: none; padding: 0 12%;
+}
+
+/* Trump sits off to the side like a turned-up card beside the deck, leaving
+   the middle of the table free for the trick. */
+.trump-corner {
+  position: absolute; left: 3.5%; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  z-index: 3;
+}
+.trump-corner .tlabel {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em;
+  color: rgba(255,255,255,.6); text-align: center; line-height: 1.4;
+}
+.trump-corner .tname { font-size: 12px; font-weight: 700; color: #fff; letter-spacing: .02em; }
+.trump-corner .tname.none { color: var(--gold); }
+
+/* Each played card is drawn just inside its owner's seat, so who played what
+   is obvious at a glance instead of being a row in the middle. */
+.trick-layer { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.trick-slot {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  animation: dealIn .22s ease-out;
+}
+@keyframes dealIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.trick-slot .order {
+  position: absolute; top: -7px; left: -7px;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: #0e1a16; border: 1px solid rgba(255,255,255,.3);
+  color: rgba(255,255,255,.8); font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; z-index: 2;
+}
+.trick-slot .who {
+  font-size: 10px; color: rgba(255,255,255,.72); max-width: 66px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.trick-slot.led .order { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
+.trick-slot.winner { animation: takeIt .45s ease-out; z-index: 4; }
+.trick-slot.winner .who { color: var(--gold); font-weight: 700; }
+@keyframes takeIt {
+  0%   { transform: translate(-50%, -50%) scale(1); }
+  55%  { transform: translate(-50%, -50%) scale(1.28); }
+  100% { transform: translate(-50%, -50%) scale(1.14); }
+}
+.trick-slot.winner .card { box-shadow: 0 0 0 3px var(--gold), 0 6px 18px rgba(0,0,0,.55); }
+/* Dimmed, but still legible — you should be able to see what everyone played
+   while the winner is highlighted. */
+.trick-slot.faded { opacity: .55; transition: opacity .3s; }
+
+/* The card currently on pace to take the trick, while it is still in play.
+   Green so it never reads as the settled gold "won" state. */
+.trick-slot.leading .card {
+  box-shadow: 0 0 0 3px var(--good), 0 4px 14px rgba(0,0,0,.5);
+}
+.trick-slot.leading::after {
+  content: "winning";
+  position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+  font-size: 8.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: #96e6a8; background: #123a22; border: 1px solid var(--good);
+  border-radius: 999px; padding: 1px 6px; white-space: nowrap;
+}
+.trick-slot.winner::after { content: none; }
+
+/* Shuffle-and-deal flourish between rounds */
+.deal-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.table-felt.dealing .center-msg { opacity: 0; transition: opacity .15s; }
+.deal-card {
+  position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 62px; border-radius: 6px; margin: -31px 0 0 -22px;
+  background: repeating-linear-gradient(45deg, #1d3f6e, #1d3f6e 5px, #16325a 5px, #16325a 10px);
+  border: 1px solid #0e2038; box-shadow: 0 3px 10px rgba(0,0,0,.5);
+  animation: dealOut .55s cubic-bezier(.3,.8,.4,1) forwards;
+}
+@keyframes dealOut {
+  0%   { transform: translate(0,0) rotate(0deg) scale(.9); opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(.62); opacity: 0; }
+}
+.deal-stack {
+  position: absolute; left: 50%; top: 50%; margin: -31px 0 0 -22px;
+  width: 44px; height: 62px; border-radius: 6px;
+  background: repeating-linear-gradient(45deg, #1d3f6e, #1d3f6e 5px, #16325a 5px, #16325a 10px);
+  border: 1px solid #0e2038; box-shadow: 0 4px 14px rgba(0,0,0,.55);
+  animation: shuffleWobble .5s ease-in-out 2;
+}
+@keyframes shuffleWobble {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  25%      { transform: rotate(-7deg) translateX(-5px); }
+  75%      { transform: rotate(7deg) translateX(5px); }
+}
+
+/* ============================ bid reveal =============================== */
+.overlay.reveal { background: rgba(4, 8, 6, .8); }
+.reveal-card {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: 18px; padding: 26px 30px; max-width: 620px; width: 100%;
+  box-shadow: var(--shadow); text-align: center;
+  animation: revealIn .35s cubic-bezier(.2,.9,.3,1.1);
+}
+@keyframes revealIn {
+  from { opacity: 0; transform: translateY(14px) scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+.reveal-title {
+  font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 700; margin-bottom: 18px;
+}
+.reveal-grid {
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px;
+}
+.reveal-player {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 74px; padding: 10px 8px 8px;
+  background: var(--bg-input); border: 1px solid var(--line-soft); border-radius: 12px;
+  animation: flipBid .34s cubic-bezier(.2,.9,.3,1.15) both;
+}
+@keyframes flipBid {
+  from { opacity: 0; transform: rotateX(-85deg) translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.reveal-player .bignum {
+  font-size: 34px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.reveal-player .who {
+  font-size: 11.5px; color: var(--text-dim); max-width: 84px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reveal-player.zero .bignum { color: var(--text-faint); }
+.reveal-player.bold .bignum { color: var(--gold); }
+.reveal-player.mine { border-color: var(--accent); background: #10203a; }
+.reveal-player.mine .who { color: var(--accent); font-weight: 700; }
+
+.reveal-total {
+  font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}
+.reveal-total .vs { color: var(--text-faint); font-weight: 600; font-size: 17px; margin: 0 8px; }
+.reveal-verdict { font-size: 14.5px; font-weight: 600; }
+.reveal-verdict.over { color: var(--bad); }
+.reveal-verdict.under { color: var(--accent); }
+.reveal-verdict.even { color: var(--good); }
+.reveal-verdict .why {
+  display: block; font-size: 12.5px; font-weight: 500;
+  color: var(--text-dim); margin-top: 5px;
+}
+
+/* The big bid number parked next to each name once bidding is done. */
+.seat .bidnum {
+  position: absolute; right: -6px; top: -8px;
+  min-width: 26px; height: 26px; padding: 0 5px;
+  border-radius: 8px; background: #0e1a16; border: 1.5px solid rgba(255,255,255,.28);
+  color: #fff; font-size: 15px; font-weight: 800; line-height: 24px;
+  font-variant-numeric: tabular-nums; z-index: 4;
+}
+.seat .bidnum.zero { color: var(--text-faint); }
+.seat.bid-hit .bidnum { border-color: var(--good); color: #96e6a8; }
+.seat.bid-over .bidnum { border-color: var(--bad); color: #ff9d97; }
+
+.center-msg {
+  font-size: 14px; color: rgba(255,255,255,.85); text-align: center;
+  min-height: 20px; text-shadow: 0 1px 4px rgba(0,0,0,.8); font-weight: 600;
+  background: rgba(6, 20, 15, .55); border-radius: 10px; padding: 6px 14px;
+  backdrop-filter: blur(2px);
+}
+.center-msg.big {
+  font-size: 19px; color: var(--gold);
+  animation: popMsg .4s ease-out;
+}
+@keyframes popMsg {
+  from { opacity: 0; transform: scale(.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.center-msg .sub { display: block; font-size: 12px; font-weight: 500; color: rgba(255,255,255,.75); margin-top: 3px; }
+
+/* =============================== seats ================================= */
+.seat {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 126px; text-align: center; pointer-events: none;
+}
+.seat .avatar {
+  background: rgba(8, 14, 12, .82);
+  border: 1.5px solid rgba(255,255,255,.16);
+  border-radius: 10px; padding: 6px 8px; backdrop-filter: blur(3px);
+}
+.seat.active .avatar {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,157,255,.28), 0 0 22px rgba(79,157,255,.35);
+  animation: waiting 1.6s ease-in-out infinite;
+}
+@keyframes waiting {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(79,157,255,.28), 0 0 18px rgba(79,157,255,.3); }
+  50%      { box-shadow: 0 0 0 5px rgba(79,157,255,.16), 0 0 30px rgba(79,157,255,.5); }
+}
+.seat.active.is-me .avatar {
+  border-color: var(--good);
+  animation: waitingMe 1.2s ease-in-out infinite;
+}
+@keyframes waitingMe {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(63,185,80,.35), 0 0 20px rgba(63,185,80,.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(63,185,80,.18), 0 0 34px rgba(63,185,80,.65); }
+}
+.seat.winner .avatar {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(232,185,35,.35), 0 0 26px rgba(232,185,35,.45);
+}
+.seat.me .avatar { border-color: rgba(255,255,255,.42); }
+.seat.offline .avatar { opacity: .5; }
+
+/* Badges that answer "who leads?" and "who just took it?" without reading text */
+.seat .badge {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: -11px; white-space: nowrap;
+  font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; z-index: 3;
+}
+.seat .badge.lead { background: #123a5e; color: #9ccbff; border: 1px solid var(--accent); }
+.seat .badge.took { background: #3d2f08; color: #ffdf7a; border: 1px solid var(--gold); }
+.seat .badge.turn { background: #123a22; color: #96e6a8; border: 1px solid var(--good); }
+
+.seat .tricks-pips {
+  display: flex; gap: 2px; justify-content: center; margin-top: 4px; flex-wrap: wrap;
+}
+.seat .pip {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.25);
+}
+.seat .pip.won { background: var(--gold); border-color: var(--gold); }
+.seat .pip.over { background: var(--bad); border-color: var(--bad); }
+
+.seat .nm {
+  font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.seat .meta {
+  font-size: 11px; color: var(--text-dim); margin-top: 2px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.seat .meta .hit { color: var(--good); font-weight: 700; }
+.seat .meta .over { color: var(--gold); font-weight: 700; }
+.seat .meta .under { color: var(--text-dim); }
+.seat .meta .pts { color: var(--text-faint); font-size: 10px; margin-top: 1px; }
+.seat .bot-tag {
+  display: inline-block; font-size: 9px; letter-spacing: .06em;
+  background: #3a2a12; color: var(--gold); border-radius: 4px;
+  padding: 1px 4px; margin-left: 3px; vertical-align: 1px;
+}
+.seat .bidpill {
+  display: inline-block; margin-top: 3px; font-size: 10.5px;
+  background: rgba(255,255,255,.12); border-radius: 999px; padding: 1px 7px;
+}
+.seat .blindcards { display: flex; gap: 2px; justify-content: center; margin-top: 4px; }
+
+/* =============================== cards ================================= */
+.card {
+  width: 54px; height: 76px; border-radius: 7px;
+  background: var(--card-face); color: var(--card-black);
+  border: 1px solid #cfcbc2;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 4px 5px; font-weight: 700; line-height: 1;
+  user-select: none; flex: 0 0 auto; position: relative;
+}
+.card.red { color: var(--card-red); }
+.card .r { font-size: 15px; }
+.card .s { font-size: 17px; align-self: flex-end; }
+.card.sm { width: 38px; height: 54px; padding: 3px 4px; border-radius: 5px; }
+.card.sm .r { font-size: 11px; }
+.card.sm .s { font-size: 12px; }
+.card.xs { width: 26px; height: 37px; padding: 2px 3px; border-radius: 4px; }
+.card.xs .r { font-size: 8.5px; }
+.card.xs .s { font-size: 9px; }
+
+.card.back {
+  background: repeating-linear-gradient(45deg, #1d3f6e, #1d3f6e 5px, #16325a 5px, #16325a 10px);
+  border-color: #0e2038;
+}
+.card.back .r, .card.back .s { display: none; }
+
+.card.trumpcard { box-shadow: 0 0 0 2px var(--gold), 0 2px 8px rgba(0,0,0,.5); }
+.card.wontrick { box-shadow: 0 0 0 2px var(--gold), 0 4px 12px rgba(0,0,0,.5); }
+
+.trick-card { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.trick-card .who {
+  font-size: 10px; color: rgba(255,255,255,.72); max-width: 56px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ============================== your hand ============================== */
+.hand-dock {
+  border-top: 1px solid var(--line-soft); background: var(--bg-raised);
+  padding: 10px 16px 14px; flex: 0 0 auto;
+}
+/* Mobile-only status line; the felt shows it instead on wider screens. */
+.status-bar { display: none; }
+
+/* Trump repeated next to the hand, where you are actually looking when you
+   choose a card. */
+.trump-chip {
+  display: none; align-items: center; gap: 6px; margin-left: 12px;
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 700;
+}
+.trump-chip.show { display: inline-flex; }
+.trump-chip .lab {
+  font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 600;
+}
+.trump-chip .suit { font-size: 16px; line-height: 1; }
+.trump-chip.red .suit, .trump-chip.red .val { color: var(--card-red); }
+.trump-chip.none { border-color: var(--gold); color: var(--gold); }
+.trump-chip.none .lab { color: var(--gold); }
+
+/* Inline bidding for the blind round — keeps the felt clear */
+.bid-dock { display: none; margin-bottom: 12px; }
+.bid-dock.show { display: block; }
+.bid-dock .bd-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.bid-dock .bd-sub { font-size: 12.5px; color: var(--text-dim); margin-bottom: 10px; }
+.bid-dock .bid-buttons { justify-content: flex-start; margin: 0; }
+
+.last-trick { border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.last-trick .lt-head {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); font-weight: 600; margin-bottom: 6px;
+}
+.last-trick .lt-cards { display: flex; gap: 3px; flex-wrap: wrap; }
+.last-trick .lt-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.last-trick .lt-item .nm {
+  font-size: 8.5px; color: var(--text-faint); max-width: 30px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.last-trick .lt-item.won .nm { color: var(--gold); font-weight: 700; }
+.last-trick .lt-item.won .card { box-shadow: 0 0 0 2px var(--gold); }
+
+.hand-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.hand-label { font-size: 12.5px; color: var(--text-dim); font-weight: 600; }
+.hand-tools { display: flex; gap: 7px; }
+
+.hand { display: flex; gap: 7px; flex-wrap: wrap; min-height: 80px; align-items: center; }
+.hand .card { cursor: grab; transition: transform .12s, box-shadow .12s, opacity .12s; }
+.hand .card.playable:hover { transform: translateY(-9px); box-shadow: 0 8px 18px rgba(0,0,0,.5); }
+.hand .card.illegal { opacity: .34; cursor: not-allowed; }
+.hand .card.dragging { opacity: .35; }
+.hand .card.drop-left { box-shadow: -3px 0 0 var(--accent); }
+.hand .card.drop-right { box-shadow: 3px 0 0 var(--accent); }
+.hand-hint { font-size: 11.5px; color: var(--text-faint); margin: 8px 0 0; }
+
+/* ============================== overlays =============================== */
+.overlay {
+  position: fixed; inset: 0; background: rgba(5, 8, 12, .72);
+  backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; padding: 20px; z-index: 40;
+}
+.overlay.show { display: flex; }
+
+/* Confined to the felt so the hand dock underneath stays visible and usable
+   — you must be able to look at your cards while choosing a bid. */
+.overlay.felt-only {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(5, 8, 12, .58);
+  padding: 12px;
+  overflow-y: auto;
+}
+.overlay.felt-only .bid-card { max-width: 400px; padding: 18px 20px; }
+.overlay.felt-only .bid-card h2 { font-size: 18px; }
+.bid-card {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: 16px; padding: 24px; max-width: 420px; width: 100%;
+  box-shadow: var(--shadow); text-align: center;
+}
+.bid-card.wide { max-width: 560px; text-align: left; }
+.bid-card h2 { margin: 0 0 6px; font-size: 20px; }
+.bid-buttons {
+  display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; margin: 18px 0 6px;
+}
+.bid-buttons .btn { min-width: 52px; flex: 0 0 auto; }
+.bid-waiting { color: var(--text-dim); font-size: 13px; margin: 10px 0 0; }
+
+.result-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0; }
+.result-table th {
+  text-align: left; color: var(--text-faint); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .05em; padding: 4px 6px;
+}
+.result-table td { padding: 6px; border-top: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.result-table td.num { text-align: right; }
+.result-table .gain-hit { color: var(--good); font-weight: 700; }
+.result-table .gain-over { color: var(--gold); }
+.result-table .gain-zero { color: var(--bad); }
+
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+  background: #2b1416; border: 1px solid var(--bad); color: #ffd9d6;
+  padding: 10px 18px; border-radius: 10px; font-size: 13.5px;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 60;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.timer-ring {
+  display: inline-block; font-variant-numeric: tabular-nums;
+  font-weight: 700; color: var(--accent);
+}
+.timer-ring.urgent { color: var(--bad); }
+
+/* =============================== mobile ================================ */
+@media (max-width: 860px) {
+  .game-grid { flex-direction: column; }
+  .sidebar {
+    width: 100%; flex: 0 0 auto; border-right: none;
+    border-bottom: 1px solid var(--line-soft); max-height: 34vh;
+  }
+  .sidebar .log { display: none; }
+  .scoreboard { display: none; }
+  .scoreboard.open { display: block; }
+  .chat { margin-top: 10px; }
+  .chat-log { height: 96px; }
+  .table-felt { margin: 8px; border-radius: 50% / 22%; min-height: 360px; border-width: 5px; }
+
+  /* Ten seats around a phone-width oval only fit if the seats get genuinely
+     small. Names stay, decoration goes. */
+  .seat { width: 72px; }
+  .seat .avatar { padding: 4px 5px; border-radius: 8px; }
+  .seat .nm { font-size: 9.5px; }
+  .seat .meta { font-size: 8.5px; }
+  .seat .meta .pts { font-size: 8px; }
+  .seat .bot-tag { display: none; }
+  .seat .badge { font-size: 7.5px; padding: 1px 5px; top: -9px; }
+  .seat .pip { width: 5px; height: 5px; }
+  .seat .blindcards .card { width: 26px; height: 37px; padding: 2px 3px; }
+  .seat .blindcards .card .r { font-size: 8.5px; }
+  .seat .blindcards .card .s { font-size: 9px; }
+
+  /* Trump already has a prominent home in the sidebar on small screens, and
+     on the felt it collides with the left-hand seats. */
+  .trump-corner { display: none; }
+  .card { width: 44px; height: 62px; }
+  .card .r { font-size: 12px; }
+  .card .s { font-size: 13px; }
+  .card.sm { width: 30px; height: 43px; }
+  .hand { gap: 5px; }
+  .brand h1 { font-size: 30px; }
+
+  /* Ten played cards around a phone-sized oval need to shrink or they collide. */
+  .trick-slot .card { width: 30px; height: 43px; padding: 3px 4px; border-radius: 5px; }
+  .trick-slot .card .r { font-size: 11px; }
+  .trick-slot .card .s { font-size: 12px; }
+  .trick-slot .who { display: none; }
+  .trick-slot .order { width: 14px; height: 14px; font-size: 8px; top: -5px; left: -5px; }
+  .trump-corner { left: 1.5%; }
+  .trump-corner .tlabel, .trump-corner .tname { font-size: 8.5px; }
+  /* The status moves out of the felt so it can never cover a played card. */
+  .table-center { display: none; }
+  .status-bar {
+    display: block; text-align: center; font-weight: 600; font-size: 13px;
+    color: var(--text); background: var(--bg-input);
+    border: 1px solid var(--line-soft); border-radius: 9px;
+    padding: 7px 10px; margin-bottom: 10px;
+  }
+  .status-bar.big { color: var(--gold); font-size: 15px; }
+  .status-bar .sub {
+    display: block; font-size: 11.5px; font-weight: 500;
+    color: var(--text-dim); margin-top: 2px;
+  }
+}

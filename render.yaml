@@ -1,0 +1,31 @@
+# Render blueprint. Push this repo to GitHub, then in the Render dashboard
+# choose "New" -> "Blueprint" and connect the repo. Everything below is picked
+# up automatically. Full walkthrough in DEPLOY.md.
+services:
+  - type: web
+    name: diminishing-bridge
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Standings fall back to a JSON file, but Render's free instances have
+      # NO persistent disk and are destroyed whenever the service sleeps, so
+      # on the free tier that file resets constantly. For standings that
+      # actually last, create a free Neon database (neon.com — permanent, no
+      # card) and set DATABASE_URL. Do NOT use Render's own free Postgres:
+      # it expires 30 days after creation.
+      #
+      # Prefer adding this in the dashboard (Environment tab) rather than
+      # committing a password to the repo.
+      # - key: DATABASE_URL
+      #   value: "postgresql://user:pass@host/db?sslmode=require"
+      #
+      # Optional pacing knobs (milliseconds). Delete to use the defaults.
+      # - key: DBRIDGE_BID_MS
+      #   value: "30000"
+      # - key: DBRIDGE_PLAY_MS
+      #   value: "20000"

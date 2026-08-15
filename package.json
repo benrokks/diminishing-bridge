@@ -1,0 +1,22 @@
+{
+  "name": "diminishing-bridge",
+  "version": "1.0.0",
+  "description": "Real-time multiplayer bidding trick-taking card game for 5-10 players",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build:practice": "node build-practice.mjs",
+    "test": "node --test \"*.test.js\""
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.13.1",
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}
