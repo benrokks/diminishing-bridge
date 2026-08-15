@@ -140,7 +140,41 @@ button, input { font: inherit; color: inherit; }
   border-radius: 999px; padding: 6px 13px; font-size: 13.5px;
 }
 .chip.host { border-color: var(--gold); }
+.chip.bot { border-style: dashed; color: var(--text-dim); }
+.chip .tag {
+  font-size: 9px; letter-spacing: .06em; background: #3a2a12; color: var(--gold);
+  border-radius: 4px; padding: 1px 4px; margin-left: 5px; vertical-align: 1px;
+}
+.chip .kick {
+  border: none; background: none; color: var(--text-faint); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 0 0 7px;
+}
+.chip .kick:hover { color: var(--bad); }
 .lobby-status { color: var(--text-dim); font-size: 14px; margin: 12px 0; }
+.lobby-status b { color: var(--text); }
+
+/* Bot seating — a table needs five seats, not five people. Host only. */
+.bot-controls {
+  display: none;
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 12px 13px; margin: 14px 0;
+}
+.bot-controls.show { display: block; }
+.bot-controls .bc-head {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-faint); font-weight: 700; margin-bottom: 9px;
+}
+.bot-controls .bc-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.size-picker { display: flex; gap: 5px; flex-wrap: wrap; }
+.size-picker button {
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  background: var(--bg-raised); border: 1px solid var(--line); color: var(--text);
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.size-picker button:hover:not(:disabled) { border-color: #3a4351; }
+.size-picker button.on { background: var(--accent-dim); border-color: var(--accent); }
+.size-picker button:disabled { opacity: .3; cursor: not-allowed; }
+.bot-controls .hint { margin-top: 9px; }
 
 /* ============================= game layout ============================= */
 .game-grid { display: flex; height: 100%; }

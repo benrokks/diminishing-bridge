@@ -148,7 +148,41 @@ button, input { font: inherit; color: inherit; }
   border-radius: 999px; padding: 6px 13px; font-size: 13.5px;
 }
 .chip.host { border-color: var(--gold); }
+.chip.bot { border-style: dashed; color: var(--text-dim); }
+.chip .tag {
+  font-size: 9px; letter-spacing: .06em; background: #3a2a12; color: var(--gold);
+  border-radius: 4px; padding: 1px 4px; margin-left: 5px; vertical-align: 1px;
+}
+.chip .kick {
+  border: none; background: none; color: var(--text-faint); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 0 0 7px;
+}
+.chip .kick:hover { color: var(--bad); }
 .lobby-status { color: var(--text-dim); font-size: 14px; margin: 12px 0; }
+.lobby-status b { color: var(--text); }
+
+/* Bot seating — a table needs five seats, not five people. Host only. */
+.bot-controls {
+  display: none;
+  background: var(--bg-input); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 12px 13px; margin: 14px 0;
+}
+.bot-controls.show { display: block; }
+.bot-controls .bc-head {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-faint); font-weight: 700; margin-bottom: 9px;
+}
+.bot-controls .bc-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.size-picker { display: flex; gap: 5px; flex-wrap: wrap; }
+.size-picker button {
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  background: var(--bg-raised); border: 1px solid var(--line); color: var(--text);
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.size-picker button:hover:not(:disabled) { border-color: #3a4351; }
+.size-picker button.on { background: var(--accent-dim); border-color: var(--accent); }
+.size-picker button:disabled { opacity: .3; cursor: not-allowed; }
+.bot-controls .hint { margin-top: 9px; }
 
 /* ============================= game layout ============================= */
 .game-grid { display: flex; height: 100%; }
@@ -896,6 +930,17 @@ button, input { font: inherit; color: inherit; }
       <p id="lobbyPrivacy" class="hint"></p>
       <div id="lobbyPlayers" class="lobby-players"></div>
       <p id="lobbyStatus" class="lobby-status"></p>
+
+      <!-- A table needs five seats, but they don't all have to be people. -->
+      <div id="botControls" class="bot-controls">
+        <div class="bc-head">Table size</div>
+        <div class="bc-row">
+          <div class="size-picker" id="sizePicker"></div>
+          <button id="btnFillBots" class="btn tiny">Fill empty seats with bots</button>
+        </div>
+        <p class="hint" id="botHint"></p>
+      </div>
+
       <div class="btn-row">
         <button id="btnStart" class="btn primary" disabled>Start game</button>
         <button id="btnLeave" class="btn ghost">Leave</button>
@@ -1237,14 +1282,20 @@ class Game {
 
   // ---------------------------------------------------------------- players
 
-  addPlayer({ id, name, token, deviceId }) {
+  /**
+   * @param fill true for a bot seat deliberately added to pad a small table out
+   *        to a legal size. Deliberately distinct from `isBot`, which also gets
+   *        set when a real player times out and may still reclaim their seat.
+   */
+  addPlayer({ id, name, token, deviceId, fill = false }) {
     if (this.status !== 'lobby') throw new Error('Game already in progress');
     if (this.players.length >= MAX_PLAYERS) throw new Error('Table is full');
     const player = {
       id, name, token, deviceId: deviceId || null,
+      fill,
       seat: this.players.length,
       connected: true,
-      isBot: false,
+      isBot: fill,
       misses: 0,
       score: 0,
       hand: [],
@@ -1296,8 +1347,30 @@ class Game {
   byId(id) { return this.players.find((p) => p.id === id); }
   bySeat(seat) { return this.players.find((p) => p.seat === seat); }
 
+  /**
+   * Real people still attached. Fill bots are excluded on purpose: a table
+   * holding nothing but bots is abandoned and must be swept, not kept alive
+   * forever playing itself.
+   */
   get humanCount() {
-    return this.players.filter((p) => p.connected).length;
+    return this.players.filter((p) => p.connected && !p.fill).length;
+  }
+
+  get botCount() {
+    return this.players.filter((p) => p.fill).length;
+  }
+
+  /** Drop one fill bot, oldest seat last, to make room for an arriving human. */
+  dropOneBot() {
+    for (let i = this.players.length - 1; i >= 0; i--) {
+      if (this.players[i].fill) {
+        this.players.splice(i, 1);
+        this.players.forEach((p, n) => { p.seat = n; });
+        this.changed();
+        return true;
+      }
+    }
+    return false;
   }
 
   // ------------------------------------------------------------------ start
@@ -1309,7 +1382,8 @@ class Game {
   start({ schedule } = {}) {
     if (this.status !== 'lobby') throw new Error('Already started');
     if (this.players.length < MIN_PLAYERS) {
-      throw new Error(`Need at least ${MIN_PLAYERS} players`);
+      throw new Error(
+        `A table needs ${MIN_PLAYERS} seats — add ${MIN_PLAYERS - this.players.length} more bot(s) or players`);
     }
     const max = maxHandSize(this.players.length);
     if (schedule) {
@@ -1434,7 +1508,8 @@ class Game {
       p.busts = 0;
       p.tricks = 0;
       p.misses = 0;
-      p.isBot = false;
+      // Humans get their seat back; fill bots stay bots for the next game.
+      p.isBot = !!p.fill;
     });
     this.status = 'lobby';
     this.round = null;
@@ -1722,6 +1797,7 @@ class Game {
         name: p.name,
         connected: p.connected,
         isBot: p.isBot,
+        fill: !!p.fill,
         score: p.score,
         tricksWon: p.tricksWon,
         handCount: p.hand.length,
@@ -2234,12 +2310,13 @@ class Game {
       row.className = 'room-row';
       row.innerHTML =
         `<span class="rc">${r.code}</span>` +
-        `<span class="rn">${r.names.map(esc).join(', ') || 'empty'}</span>` +
+        `<span class="rn">${r.names.map(esc).join(', ') || 'empty'}` +
+        `${r.bots ? ` <span style="opacity:.6">+ ${r.bots} bot${r.bots === 1 ? '' : 's'}</span>` : ''}</span>` +
         `<span class="rp">${r.players}/${r.max}</span>`;
       const btn = document.createElement('button');
       btn.className = 'btn tiny';
       btn.textContent = 'Join';
-      btn.onclick = () => sendMsg({ t: 'joinRoom', code: r.code, name: nameValue() });
+      btn.onclick = () => sendMsg({ t: 'joinRoom', code: r.code, name: nameValue(), deviceId });
       row.appendChild(btn);
       box.appendChild(row);
     }
@@ -2270,28 +2347,76 @@ class Game {
       ? 'Private table — only people with the code can join.'
       : 'Listed publicly. Anyone can find and join this table.';
 
+    const isHost = selfId() === room.hostId;
+    const MIN = room.minPlayers || 5;
+    const MAX = room.maxPlayers || 10;
+
     const box = $('lobbyPlayers');
     box.innerHTML = '';
     for (const p of state.players) {
       const c = document.createElement('span');
-      c.className = 'chip' + (p.id === room.hostId ? ' host' : '');
-      c.textContent = p.name + (p.id === room.hostId ? ' (host)' : '');
+      c.className = 'chip' + (p.id === room.hostId ? ' host' : '') + (p.fill ? ' bot' : '');
+      c.innerHTML = esc(p.name) +
+        (p.id === room.hostId ? ' (host)' : '') +
+        (p.fill ? '<span class="tag">BOT</span>' : '');
+      // The host can clear a bot out to leave the seat open for a person.
+      if (p.fill && isHost) {
+        const x = document.createElement('button');
+        x.className = 'kick';
+        x.title = 'Remove this bot';
+        x.textContent = '×';
+        x.onclick = () => sendMsg({ t: 'removeBot', botId: p.id });
+        c.appendChild(x);
+      }
       box.appendChild(c);
     }
 
-    const n = state.players.length;
-    const need = Math.max(0, 5 - n);
-    $('lobbyStatus').textContent = need > 0
-      ? `${n} seated. Need ${need} more to start (5 minimum, 10 maximum).`
-      : `${n} seated. Ready when you are.`;
+    const total = state.players.length;
+    const humans = room.humans != null ? room.humans : total;
+    const bots = room.bots || 0;
+    const need = Math.max(0, MIN - total);
 
-    const isHost = selfId() === room.hostId;
+    const who = `<b>${humans}</b> ${humans === 1 ? 'person' : 'people'}` +
+      (bots ? ` and <b>${bots}</b> bot${bots === 1 ? '' : 's'}` : '');
+    $('lobbyStatus').innerHTML = need > 0
+      ? `${who} seated. A table needs ${MIN} seats — add ${need} more ` +
+        `${need === 1 ? 'player or bot' : 'players or bots'} to start.`
+      : `${who} seated. Ready when you are.`;
+
+    // Host-only seating controls.
+    const bc = $('botControls');
+    bc.classList.toggle('show', isHost);
+    if (isHost) {
+      const picker = $('sizePicker');
+      picker.innerHTML = '';
+      for (let n = MIN; n <= MAX; n++) {
+        const b = document.createElement('button');
+        b.textContent = n;
+        b.className = n === total ? 'on' : '';
+        b.disabled = n < humans; // can't shrink below the people already here
+        b.title = n < humans ? `${humans} people are already seated` : `Seat ${n} players`;
+        b.onclick = () => sendMsg({ t: 'tableSize', size: n });
+        picker.appendChild(b);
+      }
+      const fill = $('btnFillBots');
+      fill.disabled = total >= MAX;
+      fill.textContent = need > 0 ? `Add ${need} bot${need === 1 ? '' : 's'} and be ready` : 'Add a bot';
+      fill.onclick = () => sendMsg(need > 0 ? { t: 'tableSize', size: MIN } : { t: 'addBot' });
+      $('botHint').textContent =
+        'Bots fill seats so you can play without a full table. They follow suit, ' +
+        'chase their bids, and never appear in the all-time standings. Anyone who ' +
+        'joins later takes a bot’s seat automatically.';
+    }
+
     const btn = $('btnStart');
     btn.disabled = !(isHost && room.canStart);
-    btn.textContent = isHost ? 'Start game' : 'Waiting for host';
+    btn.textContent = isHost
+      ? (room.canStart ? `Start game — ${total} players` : `Need ${need} more`)
+      : 'Waiting for the host to start';
 
-    $('lobbyPreview').textContent = n >= 5
-      ? `With ${n} players: ${Math.floor(51 / n)} cards each in round 1, ${2 * Math.floor(51 / n) - 1} rounds total.`
+    $('lobbyPreview').textContent = total >= MIN
+      ? `With ${total} players: ${Math.floor(51 / total)} cards each in round 1, ` +
+        `${2 * Math.floor(51 / total) - 1} rounds total.`
       : '';
   }
 

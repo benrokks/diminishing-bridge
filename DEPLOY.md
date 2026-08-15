@@ -99,16 +99,19 @@ Open it. You should see the landing page. Share that link with anyone.
 
 ---
 
-## Step 4 — Test it properly
+## Step 4 — Test it
 
-The game needs five players, so test it like one:
+A table needs five seats, but not five people — bots can fill the rest:
 
 1. Open your URL, type a name, click **Create table**, and note the 4-letter
    code.
-2. Open **four more windows** — use private/incognito windows, or a phone on
-   mobile data, so each gets its own identity. A normal second tab in the same
-   browser will work too.
-3. Join with the code in each, then click **Start game** in the first window.
+2. Have someone join with that code — or just open a second private/incognito
+   window and join as another name.
+3. **You do not need five people.** As host you'll see a **Table size** row.
+   Click **5** (or hit *Add bots and be ready*) and the empty seats fill with
+   bots, and **Start game** lights up.
+4. Anyone who turns up later automatically takes a bot's seat, so you can start
+   small and let people trickle in for the next game.
 
 If the first person to visit after a quiet spell waits about a minute for the
 page, that's the free tier waking up, not a bug. See Step 6.
@@ -192,9 +195,15 @@ and WebSocket on one port and reads `PORT` from the environment.
 
 ## Updating the game later
 
-Every commit to `main` redeploys automatically. From the browser: open the file
-on github.com, click the pencil icon, edit, **Commit changes**. To replace a
-file wholesale, upload it again with the same name — it overwrites.
+Every commit to `main` redeploys automatically.
+
+**To install a newer version of the game from a fresh zip:** unzip it, then in
+your repo click **Add file** → **Upload files**, select every file, drag them
+in, and **Commit changes**. Same-named files are overwritten, so the whole app
+updates in one commit and Render redeploys on its own.
+
+To change a single file: open it on github.com, click the pencil icon, edit,
+**Commit changes**.
 
 With a terminal, if you ever want one:
 

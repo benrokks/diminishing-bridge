@@ -295,7 +295,8 @@ test('bids outside 0..handSize are rejected', () => {
 test('the table refuses to start outside the 5-10 player range', () => {
   const small = new Game();
   for (let i = 0; i < 4; i++) small.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
-  assert.throws(() => small.start(), /at least 5/);
+  // The message points at the fix: seats can be bots, they need not be people.
+  assert.throws(() => small.start(), /needs 5 seats/);
 
   const big = new Game();
   for (let i = 0; i < 10; i++) big.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });

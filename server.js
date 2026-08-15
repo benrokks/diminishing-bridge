@@ -145,6 +145,9 @@ function cleanDeviceId(raw) {
 
 function joinRoom(ws, room, name, deviceId) {
   if (room.game.status !== 'lobby') throw new Error('That game has already started');
+  // A real person always outranks a bot: if the table was padded to full,
+  // free a bot seat for them rather than turning them away.
+  if (room.isFull && room.botCount > 0) room.game.dropOneBot();
   if (room.isFull) throw new Error('That table is full');
   leaveCurrentRoom(ws);
   const playerId = randomUUID();
@@ -251,6 +254,24 @@ function handle(ws, m) {
 
         case 'rematch':
           room.rematch(ws.playerId);
+          pushLobby();
+          return;
+
+        case 'addBot':
+          room.addBot(ws.playerId);
+          room.broadcast();
+          pushLobby();
+          return;
+
+        case 'removeBot':
+          room.removeBot(ws.playerId, m.botId ? String(m.botId) : null);
+          room.broadcast();
+          pushLobby();
+          return;
+
+        case 'tableSize':
+          room.setTableSize(ws.playerId, m.size);
+          room.broadcast();
           pushLobby();
           return;
 

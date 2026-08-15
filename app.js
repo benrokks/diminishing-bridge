@@ -288,12 +288,13 @@
       row.className = 'room-row';
       row.innerHTML =
         `<span class="rc">${r.code}</span>` +
-        `<span class="rn">${r.names.map(esc).join(', ') || 'empty'}</span>` +
+        `<span class="rn">${r.names.map(esc).join(', ') || 'empty'}` +
+        `${r.bots ? ` <span style="opacity:.6">+ ${r.bots} bot${r.bots === 1 ? '' : 's'}</span>` : ''}</span>` +
         `<span class="rp">${r.players}/${r.max}</span>`;
       const btn = document.createElement('button');
       btn.className = 'btn tiny';
       btn.textContent = 'Join';
-      btn.onclick = () => sendMsg({ t: 'joinRoom', code: r.code, name: nameValue() });
+      btn.onclick = () => sendMsg({ t: 'joinRoom', code: r.code, name: nameValue(), deviceId });
       row.appendChild(btn);
       box.appendChild(row);
     }
@@ -324,28 +325,76 @@
       ? 'Private table — only people with the code can join.'
       : 'Listed publicly. Anyone can find and join this table.';
 
+    const isHost = selfId() === room.hostId;
+    const MIN = room.minPlayers || 5;
+    const MAX = room.maxPlayers || 10;
+
     const box = $('lobbyPlayers');
     box.innerHTML = '';
     for (const p of state.players) {
       const c = document.createElement('span');
-      c.className = 'chip' + (p.id === room.hostId ? ' host' : '');
-      c.textContent = p.name + (p.id === room.hostId ? ' (host)' : '');
+      c.className = 'chip' + (p.id === room.hostId ? ' host' : '') + (p.fill ? ' bot' : '');
+      c.innerHTML = esc(p.name) +
+        (p.id === room.hostId ? ' (host)' : '') +
+        (p.fill ? '<span class="tag">BOT</span>' : '');
+      // The host can clear a bot out to leave the seat open for a person.
+      if (p.fill && isHost) {
+        const x = document.createElement('button');
+        x.className = 'kick';
+        x.title = 'Remove this bot';
+        x.textContent = '×';
+        x.onclick = () => sendMsg({ t: 'removeBot', botId: p.id });
+        c.appendChild(x);
+      }
       box.appendChild(c);
     }
 
-    const n = state.players.length;
-    const need = Math.max(0, 5 - n);
-    $('lobbyStatus').textContent = need > 0
-      ? `${n} seated. Need ${need} more to start (5 minimum, 10 maximum).`
-      : `${n} seated. Ready when you are.`;
+    const total = state.players.length;
+    const humans = room.humans != null ? room.humans : total;
+    const bots = room.bots || 0;
+    const need = Math.max(0, MIN - total);
 
-    const isHost = selfId() === room.hostId;
+    const who = `<b>${humans}</b> ${humans === 1 ? 'person' : 'people'}` +
+      (bots ? ` and <b>${bots}</b> bot${bots === 1 ? '' : 's'}` : '');
+    $('lobbyStatus').innerHTML = need > 0
+      ? `${who} seated. A table needs ${MIN} seats — add ${need} more ` +
+        `${need === 1 ? 'player or bot' : 'players or bots'} to start.`
+      : `${who} seated. Ready when you are.`;
+
+    // Host-only seating controls.
+    const bc = $('botControls');
+    bc.classList.toggle('show', isHost);
+    if (isHost) {
+      const picker = $('sizePicker');
+      picker.innerHTML = '';
+      for (let n = MIN; n <= MAX; n++) {
+        const b = document.createElement('button');
+        b.textContent = n;
+        b.className = n === total ? 'on' : '';
+        b.disabled = n < humans; // can't shrink below the people already here
+        b.title = n < humans ? `${humans} people are already seated` : `Seat ${n} players`;
+        b.onclick = () => sendMsg({ t: 'tableSize', size: n });
+        picker.appendChild(b);
+      }
+      const fill = $('btnFillBots');
+      fill.disabled = total >= MAX;
+      fill.textContent = need > 0 ? `Add ${need} bot${need === 1 ? '' : 's'} and be ready` : 'Add a bot';
+      fill.onclick = () => sendMsg(need > 0 ? { t: 'tableSize', size: MIN } : { t: 'addBot' });
+      $('botHint').textContent =
+        'Bots fill seats so you can play without a full table. They follow suit, ' +
+        'chase their bids, and never appear in the all-time standings. Anyone who ' +
+        'joins later takes a bot’s seat automatically.';
+    }
+
     const btn = $('btnStart');
     btn.disabled = !(isHost && room.canStart);
-    btn.textContent = isHost ? 'Start game' : 'Waiting for host';
+    btn.textContent = isHost
+      ? (room.canStart ? `Start game — ${total} players` : `Need ${need} more`)
+      : 'Waiting for the host to start';
 
-    $('lobbyPreview').textContent = n >= 5
-      ? `With ${n} players: ${Math.floor(51 / n)} cards each in round 1, ${2 * Math.floor(51 / n) - 1} rounds total.`
+    $('lobbyPreview').textContent = total >= MIN
+      ? `With ${total} players: ${Math.floor(51 / total)} cards each in round 1, ` +
+        `${2 * Math.floor(51 / total) - 1} rounds total.`
       : '';
   }
 

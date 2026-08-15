@@ -83,6 +83,17 @@
       <p id="lobbyPrivacy" class="hint"></p>
       <div id="lobbyPlayers" class="lobby-players"></div>
       <p id="lobbyStatus" class="lobby-status"></p>
+
+      <!-- A table needs five seats, but they don't all have to be people. -->
+      <div id="botControls" class="bot-controls">
+        <div class="bc-head">Table size</div>
+        <div class="bc-row">
+          <div class="size-picker" id="sizePicker"></div>
+          <button id="btnFillBots" class="btn tiny">Fill empty seats with bots</button>
+        </div>
+        <p class="hint" id="botHint"></p>
+      </div>
+
       <div class="btn-row">
         <button id="btnStart" class="btn primary" disabled>Start game</button>
         <button id="btnLeave" class="btn ghost">Leave</button>

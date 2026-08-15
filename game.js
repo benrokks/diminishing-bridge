@@ -46,14 +46,20 @@ export class Game {
 
   // ---------------------------------------------------------------- players
 
-  addPlayer({ id, name, token, deviceId }) {
+  /**
+   * @param fill true for a bot seat deliberately added to pad a small table out
+   *        to a legal size. Deliberately distinct from `isBot`, which also gets
+   *        set when a real player times out and may still reclaim their seat.
+   */
+  addPlayer({ id, name, token, deviceId, fill = false }) {
     if (this.status !== 'lobby') throw new Error('Game already in progress');
     if (this.players.length >= MAX_PLAYERS) throw new Error('Table is full');
     const player = {
       id, name, token, deviceId: deviceId || null,
+      fill,
       seat: this.players.length,
       connected: true,
-      isBot: false,
+      isBot: fill,
       misses: 0,
       score: 0,
       hand: [],
@@ -105,8 +111,30 @@ export class Game {
   byId(id) { return this.players.find((p) => p.id === id); }
   bySeat(seat) { return this.players.find((p) => p.seat === seat); }
 
+  /**
+   * Real people still attached. Fill bots are excluded on purpose: a table
+   * holding nothing but bots is abandoned and must be swept, not kept alive
+   * forever playing itself.
+   */
   get humanCount() {
-    return this.players.filter((p) => p.connected).length;
+    return this.players.filter((p) => p.connected && !p.fill).length;
+  }
+
+  get botCount() {
+    return this.players.filter((p) => p.fill).length;
+  }
+
+  /** Drop one fill bot, oldest seat last, to make room for an arriving human. */
+  dropOneBot() {
+    for (let i = this.players.length - 1; i >= 0; i--) {
+      if (this.players[i].fill) {
+        this.players.splice(i, 1);
+        this.players.forEach((p, n) => { p.seat = n; });
+        this.changed();
+        return true;
+      }
+    }
+    return false;
   }
 
   // ------------------------------------------------------------------ start
@@ -118,7 +146,8 @@ export class Game {
   start({ schedule } = {}) {
     if (this.status !== 'lobby') throw new Error('Already started');
     if (this.players.length < MIN_PLAYERS) {
-      throw new Error(`Need at least ${MIN_PLAYERS} players`);
+      throw new Error(
+        `A table needs ${MIN_PLAYERS} seats — add ${MIN_PLAYERS - this.players.length} more bot(s) or players`);
     }
     const max = maxHandSize(this.players.length);
     if (schedule) {
@@ -243,7 +272,8 @@ export class Game {
       p.busts = 0;
       p.tricks = 0;
       p.misses = 0;
-      p.isBot = false;
+      // Humans get their seat back; fill bots stay bots for the next game.
+      p.isBot = !!p.fill;
     });
     this.status = 'lobby';
     this.round = null;
@@ -531,6 +561,7 @@ export class Game {
         name: p.name,
         connected: p.connected,
         isBot: p.isBot,
+        fill: !!p.fill,
         score: p.score,
         tricksWon: p.tricksWon,
         handCount: p.hand.length,

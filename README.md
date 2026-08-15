@@ -14,7 +14,8 @@ npm start
 ```
 
 Open <http://localhost:3000>. To test with several players on one machine, open
-five browser windows (use private/incognito windows so each gets its own name).
+five browser windows (use private/incognito windows so each gets its own name)
+— or open two and have the host fill the rest of the table with bots.
 
 ```bash
 npm test          # engine unit tests + full-game simulations + websocket end-to-end
@@ -23,14 +24,14 @@ npm test          # engine unit tests + full-game simulations + websocket end-to
 ### Practice mode (no server, no network)
 
 ```bash
-npm run build:practice     # writes public/practice.html
+npm run build:practice     # writes practice.html
 ```
 
 Open that file directly in a browser — double-click it, no server needed — and
 you play a full game against bots. It is a *build*, not a rewrite: the script
-inlines `server/engine.js` and `server/game.js` verbatim and swaps only the
-transport, so the rules, the scoring and the bots are the same code the server
-runs. Rebuild it after changing anything in `server/` or `public/`.
+inlines `engine.js` and `game.js` verbatim and swaps only the transport, so
+the rules, the scoring and the bots are the same code the server runs. Rebuild
+it after changing the engine, the client, or the styles.
 
 It also ships as part of the site, so a deployed instance has it at
 `/practice.html` — useful for letting someone learn the game before you need
@@ -98,7 +99,11 @@ HTTP and WebSocket on the same port and reads `PORT` from the environment.
 
 **Deck.** One standard 52-card deck. No jokers, no duplicates.
 
-**Players.** Minimum 5, maximum 10. The table will not start outside that range.
+**Players.** A table has 5 to 10 **seats**. They do not all have to be people:
+the host can fill empty seats with bots, so two friends can play a five-handed
+game without rounding up three more. Bots follow suit, chase their bids, duck
+when they are already over, and never appear in the all-time standings. Anyone
+who joins later takes a bot's seat automatically, even on a table padded to ten.
 
 **Hand sizes.** Round 1 deals `floor(51 / players)` cards each:
 

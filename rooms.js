@@ -9,6 +9,10 @@ import { MIN_PLAYERS, MAX_PLAYERS } from './engine.js';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 confusion
 const ROOM_IDLE_MS = 10 * 60 * 1000;   // empty rooms are swept after this
 
+// Names for bot seats, so a padded table doesn't read as "Bot1, Bot2, Bot3".
+const BOT_NAMES = ['Ada', 'Bruno', 'Cleo', 'Dmitri', 'Esme',
+  'Felix', 'Greta', 'Hugo', 'Iris'];
+
 // How often every live table is advanced. This is the granularity of every
 // server-driven transition (bot moves, trick pauses, round rollover), so it
 // also bounds how fast a bot can play. Env-overridable like the other clocks.
@@ -120,9 +124,75 @@ export class Room {
   }
 
   get playerCount() { return this.game.players.length; }
+  get humanCount() { return this.game.humanCount; }
+  get botCount() { return this.game.botCount; }
   get canStart() { return this.playerCount >= MIN_PLAYERS && this.game.status === 'lobby'; }
   get isFull() { return this.playerCount >= MAX_PLAYERS; }
-  get joinable() { return this.game.status === 'lobby' && !this.isFull; }
+  /** A table padded to full with bots is still joinable — a human bumps a bot. */
+  get joinable() {
+    return this.game.status === 'lobby' && (!this.isFull || this.botCount > 0);
+  }
+
+  // ------------------------------------------------------------------- bots
+
+  requireHost(playerId) {
+    if (this.hostId !== playerId) throw new Error('Only the host can change the table');
+  }
+
+  /** The next unused bot name, so a bot never shadows a real player's name. */
+  botName() {
+    const taken = new Set(this.game.players.map((p) => p.name.toLowerCase()));
+    for (const n of BOT_NAMES) if (!taken.has(n.toLowerCase())) return n;
+    return `Bot ${this.game.players.length + 1}`;
+  }
+
+  seatBot() {
+    this.game.addPlayer({
+      id: randomUUID(),
+      name: this.botName(),
+      token: null,
+      deviceId: null, // bots never reach the standings
+      fill: true,
+    });
+  }
+
+  addBot(byPlayerId) {
+    this.requireHost(byPlayerId);
+    if (this.game.status !== 'lobby') throw new Error('The game has already started');
+    if (this.isFull) throw new Error(`A table tops out at ${MAX_PLAYERS} seats`);
+    this.seatBot();
+    this.lastActivity = Date.now();
+  }
+
+  removeBot(byPlayerId, botId) {
+    this.requireHost(byPlayerId);
+    if (this.game.status !== 'lobby') throw new Error('The game has already started');
+    if (botId) {
+      const p = this.game.byId(botId);
+      if (!p || !p.fill) throw new Error('That seat is not a bot');
+      this.game.removePlayer(botId);
+    } else if (!this.game.dropOneBot()) {
+      throw new Error('There are no bots to remove');
+    }
+    this.lastActivity = Date.now();
+  }
+
+  /** Pad the table out to `size` seats with bots, or trim bots back down to it. */
+  setTableSize(byPlayerId, size) {
+    this.requireHost(byPlayerId);
+    if (this.game.status !== 'lobby') throw new Error('The game has already started');
+    const n = Number(size);
+    if (!Number.isInteger(n) || n < MIN_PLAYERS || n > MAX_PLAYERS) {
+      throw new Error(`A table must have between ${MIN_PLAYERS} and ${MAX_PLAYERS} seats`);
+    }
+    if (n < this.humanCount) {
+      throw new Error(`${this.humanCount} people are already seated`);
+    }
+    let guard = 0;
+    while (this.playerCount < n && guard++ <= MAX_PLAYERS) this.seatBot();
+    while (this.playerCount > n && this.botCount > 0 && guard++ <= 40) this.game.dropOneBot();
+    this.lastActivity = Date.now();
+  }
 
   summary() {
     return {
@@ -132,7 +202,9 @@ export class Room {
       min: MIN_PLAYERS,
       status: this.game.status,
       joinable: this.joinable,
-      names: this.game.players.map((p) => p.name),
+      humans: this.humanCount,
+      bots: this.botCount,
+      names: this.game.players.filter((p) => !p.fill).map((p) => p.name),
       createdAt: this.createdAt,
     };
   }
@@ -174,6 +246,10 @@ export class Room {
           hostId: this.hostId,
           canStart: this.canStart,
           gamesPlayed: this.gamesPlayed,
+          humans: this.humanCount,
+          bots: this.botCount,
+          minPlayers: MIN_PLAYERS,
+          maxPlayers: MAX_PLAYERS,
         },
         game: this.game.viewFor(pid),
       });
@@ -202,6 +278,17 @@ export class RoomManager {
     this.rateLimit = new Map(); // ip -> [timestamps]
     this.timer = setInterval(() => this.tickAll(), TICK_MS);
     this.sweeper = setInterval(() => this.sweep(), 30000);
+    // Unreferenced so these clocks never hold the process open by themselves.
+    // The HTTP server keeps a live deployment running; a script or test that
+    // only builds a RoomManager can still exit.
+    this.timer.unref?.();
+    this.sweeper.unref?.();
+  }
+
+  /** Stop the clocks. Only needed if you tear a manager down by hand. */
+  stop() {
+    clearInterval(this.timer);
+    clearInterval(this.sweeper);
   }
 
   freshCode() {

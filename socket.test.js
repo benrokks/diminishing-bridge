@@ -233,7 +233,7 @@ test('a table cannot start below five players and rejects joins once full', asyn
 
   cs[0].send({ t: 'start' });
   await new Promise((r) => setTimeout(r, 200));
-  assert.ok(cs[0].errors.some((e) => /at least 5/.test(e)), 'four-player start was allowed');
+  assert.ok(cs[0].errors.some((e) => /needs 5 seats/.test(e)), 'one-player start was allowed');
 
   for (let i = 1; i < 11; i++) {
     cs[i].send({ t: 'joinRoom', code, name: `Q${i}` });
