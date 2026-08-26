@@ -84,7 +84,7 @@ test('players without a device id are skipped rather than recorded as one blob',
 // ----------------------------------------------------------- game stats
 
 test('per-game counters track exact bids, busts and tricks', () => {
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
   const game = new Game();
   for (let i = 0; i < 10; i++) {
     game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, deviceId: `d${i}` });
@@ -116,7 +116,7 @@ test('per-game counters track exact bids, busts and tricks', () => {
 });
 
 test('rematch keeps everyone seated and wipes the scores', () => {
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
   const game = new Game();
   for (let i = 0; i < 5; i++) {
     game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, deviceId: `d${i}` });
@@ -177,7 +177,7 @@ function startServer(extraEnv = {}) {
     env: {
       ...process.env,
       PORT: String(PORT),
-      DBRIDGE_BID_MS: '8000', DBRIDGE_REVEAL_MS: '20', DBRIDGE_PLAY_MS: '8000',
+      DBRIDGE_BID_MS: '8000', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '8000',
       DBRIDGE_TRICK_MS: '20', DBRIDGE_ROUND_MS: '40', DBRIDGE_BOT_MS: '10', DBRIDGE_TICK_MS: '8',
       DBRIDGE_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'dbridge-srv-')),
       ...extraEnv,

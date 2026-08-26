@@ -73,6 +73,7 @@ let revealAudit = null;
 let sawLeadingCard = false;
 let sawTrumpChip = false;
 let sawBigBidNumbers = 0;
+let blindAutoplayed = false;
 const started = Date.now();
 
 while (Date.now() - started < 240000) {
@@ -180,10 +181,13 @@ while (Date.now() - started < 240000) {
       continue;
     }
   }
+  // The blind round plays itself — capture it, then let the server run it.
+  if (info.blind.includes('hidden from you') && !info.bidDock && info.trickSlots > 0
+      && !fs.existsSync(path.join(OUT, '17-practice-blind.png'))) {
+    await page.screenshot({ path: path.join(OUT, '17-practice-blind.png') });
+    blindAutoplayed = true;
+  }
   if (info.playable > 0) {
-    if (info.blind.includes('hidden from you')) {
-      await page.screenshot({ path: path.join(OUT, '17-practice-blind.png') });
-    }
     await page.click('#hand .card.playable');
     plays++;
     await page.waitForTimeout(260);
@@ -237,6 +241,9 @@ console.log(sawBigBidNumbers >= 6
 console.log(sawPositionedTrick > 1
   ? `PASS: trick cards positioned per seat (saw ${sawPositionedTrick} at once)`
   : 'FAIL: trick cards not laid out by seat');
+console.log(blindAutoplayed
+  ? 'PASS: reached the blind round without ever clicking a hidden card'
+  : 'FAIL: blind round never observed');
 
 console.log(`bids placed: ${bids}, cards played: ${plays}, rounds seen: ${rounds.size}`);
 console.log('rounds:', [...rounds].join(' | '));

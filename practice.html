@@ -658,6 +658,16 @@ button, input { font: inherit; color: inherit; }
 .hand .card.playable:hover { transform: translateY(-9px); box-shadow: 0 8px 18px rgba(0,0,0,.5); }
 .hand .card.illegal { opacity: .34; cursor: not-allowed; }
 .hand .card.dragging { opacity: .35; }
+/* The blind round plays itself; this card is about to go, not waiting on you. */
+.hand .card.autoplaying {
+  cursor: default;
+  box-shadow: 0 0 0 3px var(--good), 0 6px 18px rgba(0,0,0,.5);
+  animation: aboutToPlay 1.1s ease-in-out infinite;
+}
+@keyframes aboutToPlay {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
 .hand .card.drop-left { box-shadow: -3px 0 0 var(--accent); }
 .hand .card.drop-right { box-shadow: 3px 0 0 var(--accent); }
 .hand-hint { font-size: 11.5px; color: var(--text-faint); margin: 8px 0 0; }
@@ -1260,6 +1270,8 @@ const TIMERS = {
   trickEnd: envMs('DBRIDGE_TRICK_MS', 3200),  // pause so everyone sees who took the trick
   roundEnd: envMs('DBRIDGE_ROUND_MS', 7000),  // pause on the scoreboard between rounds
   botDelay: envMs('DBRIDGE_BOT_MS', 900),     // bots "think" briefly so play is readable
+  // Beat between forced plays on the blind round, where nobody has a choice.
+  autoPlay: envMs('DBRIDGE_AUTOPLAY_MS', 1100),
 };
 
 // Consecutive missed decisions before a seat is handed to the bot
@@ -1697,6 +1709,20 @@ class Game {
     if (r.phase === 'playing') {
       const p = this.bySeat(r.currentSeat);
       if (!p) return;
+
+      /**
+       * The blind round: one card, which the player cannot even see. There is
+       * no decision to make and no information to act on, so the table plays
+       * itself around the circle rather than asking everyone to click a card
+       * face-down. Paced so the reveal still reads left to right.
+       */
+      if (r.blind && p.hand.length === 1) {
+        if (now >= r.turnStartedAt + TIMERS.autoPlay) {
+          try { this.playCard(p.id, p.hand[0].id); } catch { /* raced */ }
+        }
+        return;
+      }
+
       const botReady = p.isBot && now >= r.turnStartedAt + TIMERS.botDelay;
       const timedOut = now >= r.deadline;
       if (botReady || timedOut) {
@@ -1960,15 +1986,16 @@ class Game {
       // Table speed governs how long each bot pauses and how long the winning
       // trick stays on screen before it is swept away.
       var SPEEDS = {
-        slow:   { botDelay: 1500, trickEnd: 4200, roundEnd: 9000, bidReveal: 7000 },
-        normal: { botDelay: 900,  trickEnd: 3200, roundEnd: 7000, bidReveal: 5000 },
-        fast:   { botDelay: 350,  trickEnd: 1300, roundEnd: 3000, bidReveal: 1200 },
+        slow:   { botDelay: 1500, trickEnd: 4200, roundEnd: 9000, bidReveal: 7000, autoPlay: 1500 },
+        normal: { botDelay: 900,  trickEnd: 3200, roundEnd: 7000, bidReveal: 5000, autoPlay: 1100 },
+        fast:   { botDelay: 350,  trickEnd: 1300, roundEnd: 3000, bidReveal: 1200, autoPlay: 400 },
       };
       var sp = SPEEDS[m.speed] || SPEEDS.slow;
       TIMERS.botDelay = sp.botDelay;
       TIMERS.trickEnd = sp.trickEnd;
       TIMERS.roundEnd = sp.roundEnd;
       TIMERS.bidReveal = sp.bidReveal;
+      TIMERS.autoPlay = sp.autoPlay;
 
       room = new LocalRoom({ name: m.name, players: m.players });
       // Same handshake the real server sends, so the client knows who it is.
@@ -2267,7 +2294,9 @@ class Game {
     if (len > cue.trickLen) Sound.play('cardPlay');
     cue.trickLen = len;
 
-    const isMyTurn = !!(r.phase === 'playing' && state.you && r.currentSeat === state.you.seat);
+    // No "your turn" chime on the blind round — nothing is being asked of you.
+    const isMyTurn = !!(r.phase === 'playing' && !r.blind
+      && state.you && r.currentSeat === state.you.seat);
     if (isMyTurn && !cue.myTurn) Sound.play('yourTurn');
     cue.myTurn = isMyTurn;
   }
@@ -2731,6 +2760,14 @@ class Game {
     if (r.phase === 'playing') {
       const cur = state.players.find((p) => p.seat === r.currentSeat);
       if (!cur) return { html: '' };
+      if (r.blind) {
+        // Nobody is choosing anything — say so rather than implying a wait.
+        return {
+          html: `${esc(cur.name)}'s card turns over` +
+            `<span class="sub">Blind round — cards play themselves, ` +
+            `${r.trick.length} of ${state.players.length} turned</span>`,
+        };
+      }
       const leading = r.trick.length === 0;
       const suit = r.ledSuit
         ? `<span class="sub">Led ${SUIT_SYMBOL[r.ledSuit]} ${SUIT_NAMES[r.ledSuit]} · ` +
@@ -2881,19 +2918,16 @@ class Game {
       const me = state.players.find((p) => p.id === selfId());
       lbl.textContent = 'Your card (hidden from you)';
       box.innerHTML = me && me.handCount ? '<div class="card back"></div>' : '';
-      hint.textContent = 'Blind round: you can see everyone else’s card but not your own.';
-      if (r.phase === 'playing' && state.you && r.currentSeat === state.you.seat) {
-        const el = box.querySelector('.card');
-        if (el) {
-          el.classList.add('playable');
-          el.style.cursor = 'pointer';
-          el.onclick = () => {
-            // Exactly one card is held, and the server knows which.
-            sendMsg({ t: 'play', card: (state.legal && state.legal[0]) || '' });
-          };
-          hint.textContent = 'Your turn — click to play your hidden card.';
-        }
-      }
+      // One card, unseen: there is nothing to decide, so the server plays it
+      // for everyone in turn. Never ask for a click that has no meaning.
+      const myTurnBlind = !!(r.phase === 'playing' && state.you && r.currentSeat === state.you.seat);
+      const el = box.querySelector('.card');
+      if (el) el.classList.toggle('autoplaying', myTurnBlind);
+      hint.textContent = myTurnBlind
+        ? 'Your card is playing itself — nothing to choose on this round.'
+        : (r.phase === 'playing'
+          ? 'Cards play themselves this round. You can see everyone else’s, not your own.'
+          : 'Blind round: you can see everyone else’s card but not your own.');
       return;
     }
 

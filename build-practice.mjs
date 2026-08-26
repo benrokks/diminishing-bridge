@@ -201,15 +201,16 @@ const practiceShim = `
       // Table speed governs how long each bot pauses and how long the winning
       // trick stays on screen before it is swept away.
       var SPEEDS = {
-        slow:   { botDelay: 1500, trickEnd: 4200, roundEnd: 9000, bidReveal: 7000 },
-        normal: { botDelay: 900,  trickEnd: 3200, roundEnd: 7000, bidReveal: 5000 },
-        fast:   { botDelay: 350,  trickEnd: 1300, roundEnd: 3000, bidReveal: 1200 },
+        slow:   { botDelay: 1500, trickEnd: 4200, roundEnd: 9000, bidReveal: 7000, autoPlay: 1500 },
+        normal: { botDelay: 900,  trickEnd: 3200, roundEnd: 7000, bidReveal: 5000, autoPlay: 1100 },
+        fast:   { botDelay: 350,  trickEnd: 1300, roundEnd: 3000, bidReveal: 1200, autoPlay: 400 },
       };
       var sp = SPEEDS[m.speed] || SPEEDS.slow;
       TIMERS.botDelay = sp.botDelay;
       TIMERS.trickEnd = sp.trickEnd;
       TIMERS.roundEnd = sp.roundEnd;
       TIMERS.bidReveal = sp.bidReveal;
+      TIMERS.autoPlay = sp.autoPlay;
 
       room = new LocalRoom({ name: m.name, players: m.players });
       // Same handshake the real server sends, so the client knows who it is.

@@ -167,6 +167,12 @@ points at the end wins; equal top scores are reported as a tie.
 but every other player's card is face up on the table. This is the only round
 where that happens.
 
+Because you hold one card you cannot see, there is no decision to make — so
+**the cards play themselves**, one seat at a time around the table. Nobody is
+asked to click a face-down card, and the pacing keeps the reveal readable. The
+server does this, so it happens identically for every seat whether or not a
+browser is watching, and it never counts as a missed turn.
+
 **Sorting.** You can drag cards in your hand into any order, or use the
 sort-by-suit and sort-by-rank buttons. Order is private and cosmetic.
 
@@ -366,7 +372,8 @@ touching code:
 | `DBRIDGE_PLAY_MS`  | 20000 | per-card clock |
 | `DBRIDGE_TRICK_MS` | 2600  | pause showing who took the trick |
 | `DBRIDGE_ROUND_MS` | 7000  | pause on the round scoreboard |
-| `DBRIDGE_BOT_MS`   | 900   | bot "thinking" delay |
+| `DBRIDGE_BOT_MS`      | 900   | bot "thinking" delay |
+| `DBRIDGE_AUTOPLAY_MS` | 1100  | beat between forced plays on the blind round |
 | `DBRIDGE_TICK_MS`  | 400   | how often tables advance; bounds bot speed |
 
 And for standings:

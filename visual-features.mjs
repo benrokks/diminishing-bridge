@@ -19,7 +19,7 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dbridge-vis-'));
 const server = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
   env: {
     ...process.env, PORT: String(PORT), DBRIDGE_DATA_DIR: dataDir,
-    DBRIDGE_BID_MS: '400', DBRIDGE_REVEAL_MS: '20', DBRIDGE_PLAY_MS: '400', DBRIDGE_TRICK_MS: '120',
+    DBRIDGE_BID_MS: '400', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '400', DBRIDGE_TRICK_MS: '120',
     DBRIDGE_ROUND_MS: '200', DBRIDGE_BOT_MS: '30', DBRIDGE_TICK_MS: '15',
   },
   stdio: ['ignore', 'pipe', 'pipe'],

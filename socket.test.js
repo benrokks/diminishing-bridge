@@ -19,7 +19,7 @@ function startServer() {
     env: {
       ...process.env,
       PORT: String(PORT),
-      DBRIDGE_BID_MS: '8000', DBRIDGE_REVEAL_MS: '20',
+      DBRIDGE_BID_MS: '8000', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20',
       DBRIDGE_PLAY_MS: '8000',
       DBRIDGE_TRICK_MS: '30',
       DBRIDGE_ROUND_MS: '60',

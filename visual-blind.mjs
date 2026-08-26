@@ -18,7 +18,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const server = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
   env: {
     ...process.env, PORT: String(PORT),
-    DBRIDGE_BID_MS: '250', DBRIDGE_REVEAL_MS: '20', DBRIDGE_PLAY_MS: '250',
+    DBRIDGE_BID_MS: '250', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '250',
     DBRIDGE_TRICK_MS: '150', DBRIDGE_ROUND_MS: '250', DBRIDGE_BOT_MS: '40',
   },
   stdio: ['ignore', 'pipe', 'pipe'],

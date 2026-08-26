@@ -24,6 +24,8 @@ export const TIMERS = {
   trickEnd: envMs('DBRIDGE_TRICK_MS', 3200),  // pause so everyone sees who took the trick
   roundEnd: envMs('DBRIDGE_ROUND_MS', 7000),  // pause on the scoreboard between rounds
   botDelay: envMs('DBRIDGE_BOT_MS', 900),     // bots "think" briefly so play is readable
+  // Beat between forced plays on the blind round, where nobody has a choice.
+  autoPlay: envMs('DBRIDGE_AUTOPLAY_MS', 1100),
 };
 
 // Consecutive missed decisions before a seat is handed to the bot
@@ -461,6 +463,20 @@ export class Game {
     if (r.phase === 'playing') {
       const p = this.bySeat(r.currentSeat);
       if (!p) return;
+
+      /**
+       * The blind round: one card, which the player cannot even see. There is
+       * no decision to make and no information to act on, so the table plays
+       * itself around the circle rather than asking everyone to click a card
+       * face-down. Paced so the reveal still reads left to right.
+       */
+      if (r.blind && p.hand.length === 1) {
+        if (now >= r.turnStartedAt + TIMERS.autoPlay) {
+          try { this.playCard(p.id, p.hand[0].id); } catch { /* raced */ }
+        }
+        return;
+      }
+
       const botReady = p.isBot && now >= r.turnStartedAt + TIMERS.botDelay;
       const timedOut = now >= r.deadline;
       if (botReady || timedOut) {

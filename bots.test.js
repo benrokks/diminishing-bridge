@@ -108,7 +108,7 @@ test('an arriving human takes a bot seat rather than being turned away', () => {
 });
 
 test('bots are excluded from the standings', () => {
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
   const { room, ids } = seatRoom(2);
   room.setTableSize(ids[0], 5);
   room.game.start();
@@ -125,7 +125,7 @@ test('bots are excluded from the standings', () => {
 });
 
 test('a rematch keeps the bots seated as bots', () => {
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
   const { room, ids } = seatRoom(2);
   room.setTableSize(ids[0], 5);
   room.game.start();
@@ -150,7 +150,7 @@ function startServer() {
     env: {
       ...process.env,
       PORT: String(PORT),
-      DBRIDGE_BID_MS: '400', DBRIDGE_REVEAL_MS: '20', DBRIDGE_PLAY_MS: '400',
+      DBRIDGE_BID_MS: '400', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '400',
       DBRIDGE_TRICK_MS: '20', DBRIDGE_ROUND_MS: '40', DBRIDGE_BOT_MS: '10',
       DBRIDGE_TICK_MS: '8',
       DBRIDGE_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'dbridge-bots-')),

@@ -650,6 +650,16 @@ button, input { font: inherit; color: inherit; }
 .hand .card.playable:hover { transform: translateY(-9px); box-shadow: 0 8px 18px rgba(0,0,0,.5); }
 .hand .card.illegal { opacity: .34; cursor: not-allowed; }
 .hand .card.dragging { opacity: .35; }
+/* The blind round plays itself; this card is about to go, not waiting on you. */
+.hand .card.autoplaying {
+  cursor: default;
+  box-shadow: 0 0 0 3px var(--good), 0 6px 18px rgba(0,0,0,.5);
+  animation: aboutToPlay 1.1s ease-in-out infinite;
+}
+@keyframes aboutToPlay {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
 .hand .card.drop-left { box-shadow: -3px 0 0 var(--accent); }
 .hand .card.drop-right { box-shadow: 3px 0 0 var(--accent); }
 .hand-hint { font-size: 11.5px; color: var(--text-faint); margin: 8px 0 0; }

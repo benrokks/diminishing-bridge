@@ -18,7 +18,7 @@ const server = spawn(process.execPath, [path.join(here, 'server.js')], {
   env: {
     ...process.env, PORT: String(PORT),
     DBRIDGE_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'dbridge-vb-')),
-    DBRIDGE_BID_MS: '60000', DBRIDGE_REVEAL_MS: '2000', DBRIDGE_PLAY_MS: '60000',
+    DBRIDGE_BID_MS: '60000', DBRIDGE_REVEAL_MS: '2000', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '60000',
     DBRIDGE_TRICK_MS: '1200', DBRIDGE_ROUND_MS: '2000', DBRIDGE_BOT_MS: '500',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -140,12 +140,24 @@ if (started) {
     await ben.screenshot({ path: path.join(OUT, '30-reveal-with-bots.png') });
   }
 
-  // Play proceeds: someone eventually has a playable card or the bots move.
-  const moved = await ben.waitForFunction(
-    () => document.querySelectorAll('#trickLayer .trick-slot').length > 0,
-    null, { timeout: 30000 },
-  ).then(() => true).catch(() => false);
-  console.log(moved ? 'PASS: cards are being played' : 'FAIL: table stalled');
+  // Play a full trick. Whoever is on turn is either a bot (plays itself) or one
+  // of our two pages (we click). Waiting alone would flake on who leads.
+  let played = 0;
+  const deadline = Date.now() + 60000;
+  while (played < 5 && Date.now() < deadline) {
+    let clicked = false;
+    for (const p of [ben, dana]) {
+      const card = await p.$('#hand .card.playable');
+      if (card) { await card.click(); played++; clicked = true; await p.waitForTimeout(300); break; }
+    }
+    if (!clicked) await ben.waitForTimeout(300);
+    const slots = await ben.evaluate(() => document.querySelectorAll('#trickLayer .trick-slot').length);
+    if (slots >= 5) break;
+  }
+  const slots = await ben.evaluate(() => document.querySelectorAll('#trickLayer .trick-slot').length);
+  console.log(slots > 0
+    ? `PASS: cards are being played (${slots} on the table, ${played} by the humans)`
+    : 'FAIL: table stalled');
   await ben.screenshot({ path: path.join(OUT, '31-play-with-bots.png') });
 }
 

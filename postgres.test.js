@@ -133,7 +133,7 @@ test('a full game played against a live server persists to Postgres', opts, asyn
       ...process.env,
       PORT: String(PORT),
       DATABASE_URL: URL,
-      DBRIDGE_BID_MS: '200', DBRIDGE_REVEAL_MS: '20', DBRIDGE_PLAY_MS: '200', DBRIDGE_TRICK_MS: '20',
+      DBRIDGE_BID_MS: '200', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '200', DBRIDGE_TRICK_MS: '20',
       DBRIDGE_ROUND_MS: '40', DBRIDGE_BOT_MS: '10', DBRIDGE_TICK_MS: '8',
     },
     stdio: ['ignore', 'pipe', 'pipe'],

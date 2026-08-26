@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { Game, TIMERS } from './game.js';
 import { buildSchedule, resolveTrump, trickWinner, scoreRound, legalPlays } from './engine.js';
 
-Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 
 function playFullGame(numPlayers) {
   const game = new Game();
@@ -164,7 +164,7 @@ for (const n of [5, 6, 7, 8, 9, 10]) {
 }
 
 test('start() accepts an explicit short ladder (used by practice mode)', () => {
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
   const game = new Game();
   for (let i = 0; i < 6; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.players.forEach((p) => { p.isBot = true; });
@@ -217,7 +217,7 @@ test('a repeated trump suit produces a no-trump round, and the chain then resets
 });
 
 test('a player cannot play out of turn or play a card they do not hold', () => {
-  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
+  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, autoPlay: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
   const game = new Game();
   for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.start();
@@ -244,11 +244,11 @@ test('a player cannot play out of turn or play a card they do not hold', () => {
   game.playCard(leader.id, leader.hand[0].id);
   assert.equal(game.round.trick.length, 1);
 
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 });
 
 test('bids stay sealed until every player has bid', () => {
-  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
+  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, autoPlay: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
   const game = new Game();
   for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.start();
@@ -276,11 +276,11 @@ test('bids stay sealed until every player has bid', () => {
   assert.equal(after.players.find((p) => p.id === 'p0').bid, 3);
   assert.equal(after.round.totalBid, 7);
 
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 });
 
 test('bids outside 0..handSize are rejected', () => {
-  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
+  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, autoPlay: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
   const game = new Game();
   for (let i = 0; i < 10; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.start();
@@ -289,7 +289,7 @@ test('bids outside 0..handSize are rejected', () => {
   assert.throws(() => game.submitBid('p0', -1), /between 0 and 5/);
   game.submitBid('p0', 5);
   assert.throws(() => game.submitBid('p0', 2), /already bid/);
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 });
 
 test('the table refuses to start outside the 5-10 player range', () => {
@@ -304,7 +304,7 @@ test('the table refuses to start outside the 5-10 player range', () => {
 });
 
 test('the bids get their own reveal phase before any card is played', () => {
-  Object.assign(TIMERS, { bidding: 999999, bidReveal: 999999, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
+  Object.assign(TIMERS, { bidding: 999999, bidReveal: 999999, autoPlay: 999999, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
   const game = new Game();
   for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.start();
@@ -336,11 +336,11 @@ test('the bids get their own reveal phase before any card is played', () => {
   assert.equal(game.round.phase, 'playing');
   assert.equal(game.round.currentSeat, game.round.leadSeat, 'the announced leader actually leads');
 
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 });
 
 test('the round lead is known and published before bidding starts', () => {
-  Object.assign(TIMERS, { bidding: 999999, bidReveal: 999999, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
+  Object.assign(TIMERS, { bidding: 999999, bidReveal: 999999, autoPlay: 999999, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
   const game = new Game();
   for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.start();
@@ -357,11 +357,11 @@ test('the round lead is known and published before bidding starts', () => {
   game.tick();
   assert.equal(game.round.currentSeat, announced);
 
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 });
 
 test('leadingSeat tracks who would take the trick as it is being played', () => {
-  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
+  Object.assign(TIMERS, { bidding: 999999, bidReveal: 0, autoPlay: 0, playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999 });
   const game = new Game();
   for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.start();
@@ -390,11 +390,66 @@ test('leadingSeat tracks who would take the trick as it is being played', () => 
   // Trick complete: the settled winner matches the last leader shown.
   assert.equal(game.round.winnerSeat, trickWinner(played, r.trumpSuit).seat);
 
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+});
+
+test('the blind round plays itself — nobody has to click a hidden card', () => {
+  // Real players, not bots: the point is that no client action is needed.
+  // playing stays long: if autoplay were broken the round would hang, not
+  // quietly fall through to the timeout path and look like a pass.
+  Object.assign(TIMERS, {
+    bidding: 999999, bidReveal: 0, autoPlay: 0,
+    playing: 999999, trickEnd: 0, roundEnd: 0, botDelay: 999999,
+  });
+  const game = new Game();
+  for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
+  game.players.forEach((p) => { p.isBot = false; });
+
+  game.start({ schedule: [1] });
+  assert.equal(game.round.blind, true, 'a one-card round must be the blind round');
+
+  for (const p of game.players) game.submitBid(p.id, 0);
+  game.tick(); // clear the reveal
+
+  // Nobody plays a card. The table should still resolve on its own.
+  let guard = 0;
+  while (game.status !== 'finished' && guard++ < 100000) game.tick();
+
+  assert.equal(game.status, 'finished', 'the blind round stalled waiting for a click');
+  for (const p of game.players) {
+    assert.equal(p.hand.length, 0, 'a card was left unplayed');
+    assert.equal(p.misses, 0, 'autoplay must not count as a missed turn');
+    assert.equal(p.isBot, false, 'autoplay must not hand the seat to a bot');
+  }
+  const tricks = game.players.reduce((s, p) => s + p.tricksWon, 0);
+  assert.equal(tricks, 1, 'exactly one trick exists on a one-card round');
+
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+});
+
+test('autoplay does not leak into rounds where you actually have a choice', () => {
+  Object.assign(TIMERS, {
+    bidding: 999999, bidReveal: 0, autoPlay: 0,
+    playing: 999999, trickEnd: 999999, roundEnd: 999999, botDelay: 999999,
+  });
+  const game = new Game();
+  for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
+  game.players.forEach((p) => { p.isBot = false; });
+  game.start({ schedule: [2] });          // two cards: a real decision
+  for (const p of game.players) game.submitBid(p.id, 0);
+  game.tick();
+
+  assert.equal(game.round.blind, false);
+  const before = game.round.trick.length;
+  for (let i = 0; i < 50; i++) game.tick();
+  assert.equal(game.round.trick.length, before,
+    'the server played a card for someone who still had a choice');
+
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 });
 
 test('the trick winner leads the next trick', () => {
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 999999, trickEnd: 0, roundEnd: 999999, botDelay: 999999 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 999999, trickEnd: 0, roundEnd: 999999, botDelay: 999999 });
   const game = new Game();
   for (let i = 0; i < 5; i++) game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}` });
   game.start();
@@ -411,7 +466,7 @@ test('the trick winner leads the next trick', () => {
   game.resolveTrickEnd();
   assert.equal(game.round.leadSeat, winnerSeat);
   assert.equal(game.round.currentSeat, winnerSeat);
-  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
+  Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
 });
 
 test('the round lead rotates one seat clockwise each round', () => {

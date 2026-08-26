@@ -245,7 +245,9 @@
     if (len > cue.trickLen) Sound.play('cardPlay');
     cue.trickLen = len;
 
-    const isMyTurn = !!(r.phase === 'playing' && state.you && r.currentSeat === state.you.seat);
+    // No "your turn" chime on the blind round — nothing is being asked of you.
+    const isMyTurn = !!(r.phase === 'playing' && !r.blind
+      && state.you && r.currentSeat === state.you.seat);
     if (isMyTurn && !cue.myTurn) Sound.play('yourTurn');
     cue.myTurn = isMyTurn;
   }
@@ -709,6 +711,14 @@
     if (r.phase === 'playing') {
       const cur = state.players.find((p) => p.seat === r.currentSeat);
       if (!cur) return { html: '' };
+      if (r.blind) {
+        // Nobody is choosing anything — say so rather than implying a wait.
+        return {
+          html: `${esc(cur.name)}'s card turns over` +
+            `<span class="sub">Blind round — cards play themselves, ` +
+            `${r.trick.length} of ${state.players.length} turned</span>`,
+        };
+      }
       const leading = r.trick.length === 0;
       const suit = r.ledSuit
         ? `<span class="sub">Led ${SUIT_SYMBOL[r.ledSuit]} ${SUIT_NAMES[r.ledSuit]} · ` +
@@ -859,19 +869,16 @@
       const me = state.players.find((p) => p.id === selfId());
       lbl.textContent = 'Your card (hidden from you)';
       box.innerHTML = me && me.handCount ? '<div class="card back"></div>' : '';
-      hint.textContent = 'Blind round: you can see everyone else’s card but not your own.';
-      if (r.phase === 'playing' && state.you && r.currentSeat === state.you.seat) {
-        const el = box.querySelector('.card');
-        if (el) {
-          el.classList.add('playable');
-          el.style.cursor = 'pointer';
-          el.onclick = () => {
-            // Exactly one card is held, and the server knows which.
-            sendMsg({ t: 'play', card: (state.legal && state.legal[0]) || '' });
-          };
-          hint.textContent = 'Your turn — click to play your hidden card.';
-        }
-      }
+      // One card, unseen: there is nothing to decide, so the server plays it
+      // for everyone in turn. Never ask for a click that has no meaning.
+      const myTurnBlind = !!(r.phase === 'playing' && state.you && r.currentSeat === state.you.seat);
+      const el = box.querySelector('.card');
+      if (el) el.classList.toggle('autoplaying', myTurnBlind);
+      hint.textContent = myTurnBlind
+        ? 'Your card is playing itself — nothing to choose on this round.'
+        : (r.phase === 'playing'
+          ? 'Cards play themselves this round. You can see everyone else’s, not your own.'
+          : 'Blind round: you can see everyone else’s card but not your own.');
       return;
     }
 
