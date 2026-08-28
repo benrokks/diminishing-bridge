@@ -101,9 +101,18 @@ HTTP and WebSocket on the same port and reads `PORT` from the environment.
 
 **Players.** A table has 5 to 10 **seats**. They do not all have to be people:
 the host can fill empty seats with bots, so two friends can play a five-handed
-game without rounding up three more. Bots follow suit, chase their bids, duck
-when they are already over, and never appear in the all-time standings. Anyone
-who joins later takes a bot's seat automatically, even on a table padded to ten.
+game without rounding up three more. Anyone who joins later takes a bot's seat
+automatically, even on a table padded to ten. Bots never appear in the all-time
+standings.
+
+**The bots have personalities.** Nine characters in `personas.js`, each with a
+different `nerve` (how far above a sober count they bid), `temper` (how far
+from the book they will wander) and `showman` (taste for leading big cards
+early). Card choice is a weighted draw over scored options rather than an
+argmax, so the same hand does not always produce the same play. Ada holds the
+ace of trump back; Greta fires it. They also talk — greeting the lobby,
+answering people who chat, and reacting to their own results. Several of them
+swear enthusiastically. Hosts can switch bot chat off.
 
 **Hand sizes.** Round 1 deals `floor(51 / players)` cards each:
 
@@ -176,6 +185,13 @@ browser is watching, and it never counts as a missed turn.
 **Sorting.** You can drag cards in your hand into any order, or use the
 sort-by-suit and sort-by-rank buttons. Order is private and cosmetic.
 
+### Optional rule: the big round of one
+
+Host toggle, off by default. On the single-card round *only*, bidding 1 and
+taking it pays **21** instead of 11. Bidding 0 still pays 10, and missing still
+pays nothing. It rewards nerve on the round nobody can see and keeps a losing
+player within reach right at the end of the ladder.
+
 ---
 
 ## Reading the table
@@ -233,11 +249,19 @@ wins, total and average score, best game, tricks taken, and how often they hit
 their bid exactly. Shown on the landing page, on the end-of-game screen, and
 ranked by wins, then average score.
 
-**Identity.** Your browser stores a private random id and stats attach to that,
-not to your nickname — so typing someone else's name does not get you their
-record. That id is treated as a credential: it is never sent to other players,
-never included in the leaderboard payload, and never exposed by
-`/api/leaderboard`. Clearing site data starts a fresh record.
+**Identity.** Two levels, and the difference matters:
+
+- **Signed out** — your browser holds a private random id and stats attach to
+  that. Simple, but the record lives on that one browser.
+- **Signed in** — claim a name with a 4–8 digit PIN on the landing page. Your
+  record then follows the *name*, so signing in on a phone, a laptop or a
+  friend's machine shows the same all-time stats. First use of a name claims
+  it; after that the PIN is required.
+
+PINs are salted and stretched with scrypt, compared in constant time, and never
+stored or transmitted in the clear. Neither identity is ever exposed to other
+players: the leaderboard payload and `/api/leaderboard` both strip the key and
+send only a per-viewer `isMe` flag.
 
 **Storage.** Two interchangeable backends, chosen automatically:
 
@@ -254,6 +278,14 @@ instances have no persistent disk and are destroyed every time the service
 spins down (15 minutes idle), so standings would reset several times a day. To
 make them real, point `DATABASE_URL` at a free Postgres database. The table is
 created automatically on first boot; there is no migration step.
+
+The server does not keep this to itself. `/healthz` answers
+`{"ok":true,"standings":"postgres","durable":true}` or
+`{"ok":true,"standings":"file","durable":false}`, the same fact reaches the
+browser in the `hello` frame, and the landing page prints it under the
+standings table in green or amber. A host that silently forgets records is the
+kind of failure nobody notices until weeks of them are already gone, so the
+site says which one it is.
 
 Which free Postgres, as of August 2026:
 

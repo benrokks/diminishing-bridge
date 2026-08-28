@@ -21,7 +21,7 @@ function seatRoom(humans = 2) {
   const ids = [];
   for (let i = 0; i < humans; i++) {
     const id = `human-${i}`;
-    room.game.addPlayer({ id, name: `H${i}`, token: `t${i}`, deviceId: `dev-${i}-aaaaaaaa` });
+    room.game.addPlayer({ id, name: `H${i}`, token: `t${i}`, statsKey: `dev:dev-${i}-aaaaaaaa` });
     ids.push(id);
   }
   room.hostId = ids[0];
@@ -73,8 +73,8 @@ test('table size is clamped to the legal range and to the people present', () =>
 test('bots never take a name a real player is using', () => {
   const manager = new RoomManager(null);
   const room = manager.create({ isPrivate: true });
-  room.game.addPlayer({ id: 'h0', name: 'Ada', token: 't', deviceId: 'dev-0-aaaaaaaa' });
-  room.game.addPlayer({ id: 'h1', name: 'Bruno', token: 't', deviceId: 'dev-1-aaaaaaaa' });
+  room.game.addPlayer({ id: 'h0', name: 'Ada', token: 't', statsKey: 'dev:dev-0-aaaaaaaa' });
+  room.game.addPlayer({ id: 'h1', name: 'Bruno', token: 't', statsKey: 'dev:dev-1-aaaaaaaa' });
   room.hostId = 'h0';
   room.setTableSize('h0', 6);
 
@@ -100,7 +100,7 @@ test('an arriving human takes a bot seat rather than being turned away', () => {
   assert.equal(room.joinable, true, 'a bot-padded table should still accept people');
 
   assert.equal(room.game.dropOneBot(), true);
-  room.game.addPlayer({ id: 'late', name: 'Late', token: 't', deviceId: 'dev-late-aaaa' });
+  room.game.addPlayer({ id: 'late', name: 'Late', token: 't', statsKey: 'dev:dev-late-aaaa' });
   assert.equal(room.playerCount, 10);
   assert.equal(room.humanCount, 3);
   assert.equal(room.botCount, 7);
@@ -117,8 +117,8 @@ test('bots are excluded from the standings', () => {
 
   const rows = room.game.gameSummary();
   assert.equal(rows.length, 2, 'only the two real players should be recorded');
-  assert.deepEqual(rows.map((r) => r.deviceId).sort(),
-    ['dev-0-aaaaaaaa', 'dev-1-aaaaaaaa']);
+  assert.deepEqual(rows.map((r) => r.key).sort(),
+    ['dev:dev-0-aaaaaaaa', 'dev:dev-1-aaaaaaaa']);
   // The game itself still ran a full five-handed ladder.
   assert.equal(room.game.schedule.length, 19);
   for (const p of room.game.players) assert.equal(p.roundScores.length, 19);
@@ -146,9 +146,15 @@ test('a rematch keeps the bots seated as bots', () => {
 const PORT = 38400 + Math.floor(Math.random() * 300);
 
 function startServer() {
+  // This file asserts on the *whole* leaderboard, so it needs a standings
+  // store with no history. A DATABASE_URL in the developer's shell would
+  // otherwise be inherited and the shared database's older rows would show up
+  // as phantom players. Force the temp file backend.
+  const env = { ...process.env };
+  delete env.DATABASE_URL;
   const child = spawn(process.execPath, [path.join(here, 'server.js')], {
     env: {
-      ...process.env,
+      ...env,
       PORT: String(PORT),
       DBRIDGE_BID_MS: '400', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '400',
       DBRIDGE_TRICK_MS: '20', DBRIDGE_ROUND_MS: '40', DBRIDGE_BOT_MS: '10',

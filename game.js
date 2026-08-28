@@ -37,6 +37,8 @@ export class Game {
     this.onEvent = onEvent || (() => {});
 
     this.status = 'lobby'; // lobby | playing | finished
+    /** Optional table rules, set from the lobby before the game starts. */
+    this.options = { blindBonus: false };
     this.players = [];     // seat order == array order
     this.schedule = [];
     this.roundIndex = -1;
@@ -53,11 +55,12 @@ export class Game {
    *        to a legal size. Deliberately distinct from `isBot`, which also gets
    *        set when a real player times out and may still reclaim their seat.
    */
-  addPlayer({ id, name, token, deviceId, fill = false }) {
+  addPlayer({ id, name, token, statsKey = null, fill = false }) {
     if (this.status !== 'lobby') throw new Error('Game already in progress');
     if (this.players.length >= MAX_PLAYERS) throw new Error('Table is full');
     const player = {
-      id, name, token, deviceId: deviceId || null,
+      id, name, token,
+      statsKey: statsKey || null,   // which all-time record this seat feeds
       fill,
       seat: this.players.length,
       connected: true,
@@ -243,9 +246,9 @@ export class Game {
   gameSummary() {
     const best = Math.max(...this.players.map((p) => p.score));
     return this.players
-      .filter((p) => p.deviceId)
+      .filter((p) => p.statsKey)
       .map((p) => ({
-        deviceId: p.deviceId,
+        key: p.statsKey,
         name: p.name,
         score: p.score,
         won: p.score === best,
@@ -403,8 +406,9 @@ export class Game {
     const r = this.round;
     r.phase = 'roundEnd';
     r.deadline = Date.now() + TIMERS.roundEnd;
+    const blindBonus = !!(this.options.blindBonus && r.blind);
     r.results = this.players.map((p) => {
-      const gained = scoreRound(p.bid, p.tricksWon);
+      const gained = scoreRound(p.bid, p.tricksWon, { blindBonus });
       p.score += gained;
       p.roundScores.push(gained);
       p.tricks += p.tricksWon;
@@ -499,8 +503,42 @@ export class Game {
 
   // --------------------------------------------------------------------- bot
 
+  /**
+   * Personality. Without this every bot ran the same deterministic policy, so
+   * a leading bot holding the ace of trump led it every single time — correct,
+   * and completely readable. Each bot now has its own tilt, and choices are
+   * drawn from a weighted distribution rather than taken as an argmax.
+   *
+   *   nerve      how far above a sober count they bid
+   *   temper     randomness in card choice — 0 plays the book, high improvises
+   *   showman    fondness for leading big cards early
+   */
+  persona(p) {
+    return p.persona || { nerve: 0, temper: 0.35, showman: 0.5 };
+  }
+
+  /** Weighted pick. `temper` 0 collapses to the best-scoring option. */
+  static pick(scored, temper) {
+    if (!scored.length) return null;
+    if (temper <= 0.001) {
+      return scored.reduce((a, b) => (b.score > a.score ? b : a)).card;
+    }
+    const top = Math.max(...scored.map((s) => s.score));
+    // Exponential weighting: better options stay likelier, but nothing is
+    // ever guaranteed, so the table cannot read a bot's hand from its habits.
+    const weights = scored.map((s) => Math.exp((s.score - top) / (12 * temper)));
+    const total = weights.reduce((a, b) => a + b, 0);
+    let roll = Math.random() * total;
+    for (let i = 0; i < scored.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) return scored[i].card;
+    }
+    return scored[scored.length - 1].card;
+  }
+
   botBid(p) {
     const r = this.round;
+    const ps = this.persona(p);
     let expect = 0;
     for (const c of p.hand) {
       const isTrump = r.trumpSuit && c.suit === r.trumpSuit;
@@ -508,6 +546,16 @@ export class Game {
       else if (c.rank === 14) expect += 0.85;
       else if (c.rank === 13) expect += 0.5;
       else if (c.rank === 12) expect += 0.25;
+    }
+    // Personal tilt, plus jitter so identical hands don't always bid the same.
+    expect += ps.nerve;
+    expect += (Math.random() - 0.5) * (0.5 + ps.temper);
+
+    // On the blind round nobody can see their card, so it is a coin flip with
+    // a personality: bold bots call one, cautious ones sit at zero.
+    if (r.blind) {
+      const bold = 0.3 + ps.nerve * 0.35 + (this.options.blindBonus ? 0.25 : 0);
+      return Math.random() < bold ? 1 : 0;
     }
     return Math.max(0, Math.min(r.cardsPerHand, Math.round(expect)));
   }
@@ -519,26 +567,64 @@ export class Game {
     const legal = legalPlays(p.hand, led);
     if (legal.length === 1) return legal[0];
 
+    const ps = this.persona(p);
     const need = p.bid - p.tricksWon;
+    const left = p.hand.length;
     const wantsTricks = need > 0;
+    const desperate = need >= left;          // must win everything from here
+    const done = need <= 0;                  // already at or past the bid
+
+    const isTrump = (c) => !!(r.trumpSuit && c.suit === r.trumpSuit);
 
     if (!led) {
-      // Leading: push a high card when chasing tricks, otherwise dump low.
-      const sorted = legal.slice().sort((a, b) => b.rank - a.rank);
-      return wantsTricks ? sorted[0] : sorted[sorted.length - 1];
+      /**
+       * Leading. Rather than "highest card if chasing", score every option and
+       * sample. Top trumps stay the strongest play when a bot genuinely needs
+       * tricks, but it will also open with a middling card, or hold the ace
+       * back a round, the way a person does.
+       */
+      const scored = legal.map((c) => {
+        let s;
+        if (desperate) {
+          s = c.rank + (isTrump(c) ? 30 : 0);        // no time to be clever
+        } else if (wantsTricks) {
+          s = c.rank * 0.8 + (isTrump(c) ? 14 : 0);
+          // Showmen fire the big guns early; the coy keep them for later.
+          if (c.rank >= 13) s += (ps.showman - 0.5) * 16;
+          if (isTrump(c) && c.rank >= 13 && left > 2) s -= (1 - ps.showman) * 10;
+        } else {
+          s = (15 - c.rank) + (isTrump(c) ? -12 : 0); // shed safely
+        }
+        return { card: c, score: s };
+      });
+      return Game.pick(scored, ps.temper);
     }
 
-    const current = trickWinner(r.trick, r.trumpSuit);
     const beats = (c) => {
       const test = r.trick.concat([{ seat: p.seat, card: c }]);
       return trickWinner(test, r.trumpSuit).seat === p.seat;
     };
-    const winning = legal.filter(beats).sort((a, b) => a.rank - b.rank);
-    const losing = legal.filter((c) => !beats(c)).sort((a, b) => a.rank - b.rank);
+    const lastToPlay = r.trick.length === this.players.length - 1;
 
-    if (wantsTricks && winning.length) return winning[0];       // win as cheaply as possible
-    if (!wantsTricks && losing.length) return losing[losing.length - 1]; // dump the biggest safe card
-    return (losing[0] || winning[0] || legal[0]);
+    const scored = legal.map((c) => {
+      const wins = beats(c);
+      let s;
+      if (wantsTricks) {
+        // Take it, as cheaply as possible; a wasted high card is a real cost.
+        s = wins ? 40 - c.rank * 0.9 : 6 - c.rank * 0.4;
+        if (wins && isTrump(c) && !isTrump(r.trick[0].card) && !lastToPlay) {
+          s -= (1 - ps.showman) * 8;      // trumping in early is a commitment
+        }
+        if (desperate && wins) s += 25;
+      } else {
+        // Ducking. Throw the biggest card that cannot win, but not so blindly
+        // that everyone can read the hand off it.
+        s = wins ? -30 + (done ? -10 : 0) : 12 + c.rank * 0.5;
+        if (!wins && isTrump(c)) s -= 8;  // hold trump back when not chasing
+      }
+      return { card: c, score: s };
+    });
+    return Game.pick(scored, ps.temper);
   }
 
   // ------------------------------------------------------------------- views

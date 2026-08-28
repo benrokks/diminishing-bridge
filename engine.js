@@ -143,8 +143,13 @@ export function trickWinner(plays, trumpSuit) {
  *   over  the bid   -> 1 point per trick taken
  *   under the bid   -> 0
  */
-export function scoreRound(bid, tricksWon) {
-  if (tricksWon === bid) return 10 + bid;
+export function scoreRound(bid, tricksWon, { blindBonus = false } = {}) {
+  if (tricksWon === bid) {
+    // Optional table rule, single-card round only: calling 1 and taking it
+    // pays 20 + bid instead of 10 + bid. A deliberate comeback lever.
+    if (blindBonus && bid === 1) return 20 + bid;
+    return 10 + bid;
+  }
   if (tricksWon > bid) return tricksWon;
   return 0;
 }

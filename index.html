@@ -49,13 +49,33 @@
 
     <div class="panel">
       <div class="panel-head">
+        <h2>Your all-time record</h2>
+        <span class="hint" id="acctState">not signed in</span>
+      </div>
+      <p class="hint" style="margin-bottom:12px">
+        Claim a name with a PIN and your record follows you to any device or
+        browser. Without it, stats only live in this browser.
+      </p>
+      <div class="acct-row">
+        <input id="acctName" maxlength="14" placeholder="Name" autocomplete="username" />
+        <input id="acctPin" maxlength="8" inputmode="numeric" placeholder="PIN"
+               autocomplete="current-password" type="password" />
+        <button id="btnSignIn" class="btn primary">Sign in</button>
+        <button id="btnSignOut" class="btn ghost" style="display:none">Sign out</button>
+      </div>
+      <p class="hint" id="acctHint" style="margin-top:9px">
+        First time with a name claims it. 4–8 digits.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <h2>All-time standings</h2>
         <button id="btnRefreshBoard" class="btn tiny">Refresh</button>
       </div>
       <div id="myStats" class="my-stats"></div>
       <div id="leaderboard" class="leaderboard"><p class="empty">No games recorded yet.</p></div>
-      <p class="hint" style="margin-top:10px">Your record is tied to this browser, not your
-        nickname, so nobody can take it by copying your name.</p>
+      <p class="hint storage-state" id="storageState">Checking how standings are stored…</p>
     </div>
 
     <details class="panel rules">
@@ -92,6 +112,21 @@
           <button id="btnFillBots" class="btn tiny">Fill empty seats with bots</button>
         </div>
         <p class="hint" id="botHint"></p>
+      </div>
+
+      <div id="ruleControls" class="bot-controls">
+        <div class="bc-head">Table rules</div>
+        <label class="checkline">
+          <input type="checkbox" id="ruleBlindBonus" />
+          <span><b>Big round of one.</b> On the single-card round only, bid 1 and
+            take it for <b>21 points</b> instead of 11. Rewards nerve and keeps
+            comebacks alive.</span>
+        </label>
+        <label class="checkline">
+          <input type="checkbox" id="ruleBotChat" checked />
+          <span><b>Bot trash talk.</b> Bots chat in the lobby and between rounds,
+            in character. Some of them swear a great deal.</span>
+        </label>
       </div>
 
       <div class="btn-row">
@@ -158,6 +193,7 @@
              be able to see your cards while deciding what to bid. -->
         <div id="bidOverlay" class="overlay felt-only">
           <div class="bid-card">
+            <div id="leadBanner" class="lead-banner"></div>
             <h2>Place your bid</h2>
             <p id="bidSub" class="hint"></p>
             <div id="bidButtons" class="bid-buttons"></div>

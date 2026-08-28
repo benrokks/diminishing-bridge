@@ -17,13 +17,47 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
+
+/**
+ * Records are keyed by an opaque string, not by a device:
+ *   dev:<browser id>   an unclaimed browser — stats stay on that machine
+ *   acct:<handle>      a claimed name, reachable from any device with the PIN
+ * Claiming is what makes an all-time record follow a player around.
+ */
+export const deviceKey = (id) => `dev:${id}`;
+export const accountKey = (handle) => `acct:${handle}`;
+
+export function normaliseHandle(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 14);
+}
+
+/** PINs are short by design, so they are salted and stretched, never stored raw. */
+export function hashPin(pin, salt) {
+  return crypto.scryptSync(String(pin), salt, 32).toString('hex');
+}
+
+export function makeSalt() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+/** Constant-time compare so a wrong PIN cannot be probed by timing. */
+export function pinMatches(pin, salt, expected) {
+  const got = Buffer.from(hashPin(pin, salt), 'hex');
+  const want = Buffer.from(expected, 'hex');
+  return got.length === want.length && crypto.timingSafeEqual(got, want);
+}
+
+export function validPin(pin) {
+  return /^\d{4,8}$/.test(String(pin || ''));
+}
 
 // Resolved per call, not at import time, so the location stays configurable
 // (and so tests can point each store at its own directory).
 const resolveDir = (dir) => dir || process.env.DBRIDGE_DATA_DIR || path.join(process.cwd(), 'data');
 
-const blankRow = (deviceId, name) => ({
-  deviceId,
+const blankRow = (key, name) => ({
+  key,
   name,
   games: 0,
   wins: 0,
@@ -80,6 +114,7 @@ function createFileStore(dir) {
     console.error('standings: could not read existing file, starting fresh —', err.message);
   }
   if (!data.players) data.players = {};
+  if (!data.accounts) data.accounts = {};
 
   let pending = null;
   let writing = false;
@@ -109,22 +144,41 @@ function createFileStore(dir) {
   return {
     kind: 'file',
     file: FILE,
+
+    /**
+     * Claim a handle, or sign in to one already claimed. Returns the storage
+     * key on success so a player's record follows them to any device.
+     */
+    async claim(handle, pin) {
+      const row = data.accounts[handle];
+      if (!row) {
+        const salt = makeSalt();
+        data.accounts[handle] = { handle, salt, pin: hashPin(pin, salt), createdAt: Date.now() };
+        schedule();
+        return { ok: true, created: true, key: accountKey(handle) };
+      }
+      if (!pinMatches(pin, row.salt, row.pin)) {
+        return { ok: false, reason: 'That name is taken and the PIN does not match.' };
+      }
+      return { ok: true, created: false, key: accountKey(handle) };
+    },
+
     async recordGame(results) {
       for (const r of results) {
-        if (!r.deviceId) continue;
-        const row = data.players[r.deviceId] || blankRow(r.deviceId, r.name);
-        data.players[r.deviceId] = applyResult(row, r);
+        if (!r.key) continue;
+        const row = data.players[r.key] || blankRow(r.key, r.name);
+        data.players[r.key] = applyResult(row, r);
       }
       schedule();
     },
     async leaderboard(limit = 25) {
       return rank(Object.values(data.players)).slice(0, limit);
     },
-    async player(deviceId) {
-      const row = data.players[deviceId];
+    async player(key) {
+      const row = data.players[key];
       if (!row) return null;
       const all = rank(Object.values(data.players));
-      const idx = all.findIndex((x) => x.deviceId === deviceId);
+      const idx = all.findIndex((x) => x.key === key);
       return { ...decorate(row), rank: idx + 1, of: all.length };
     },
     async close() { await flush(); },
@@ -196,8 +250,17 @@ async function createPgStore() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_accounts (
+      handle     TEXT PRIMARY KEY,
+      salt       TEXT NOT NULL,
+      pin_hash   TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
   const fromRow = (r) => ({
-    deviceId: r.device_id,
+    key: r.device_id,
     name: r.name,
     games: r.games,
     wins: r.wins,
@@ -212,12 +275,35 @@ async function createPgStore() {
 
   return {
     kind: 'postgres',
+
+    async claim(handle, pin) {
+      const { rows } = await pool.query(
+        'SELECT salt, pin_hash FROM player_accounts WHERE handle = $1', [handle]);
+      if (!rows.length) {
+        const salt = makeSalt();
+        try {
+          await pool.query(
+            'INSERT INTO player_accounts (handle, salt, pin_hash) VALUES ($1,$2,$3)',
+            [handle, salt, hashPin(pin, salt)]);
+        } catch {
+          // Someone claimed it between the read and the write — fall through
+          // and treat this as a sign-in attempt rather than clobbering them.
+          return this.claim(handle, pin);
+        }
+        return { ok: true, created: true, key: accountKey(handle) };
+      }
+      if (!pinMatches(pin, rows[0].salt, rows[0].pin_hash)) {
+        return { ok: false, reason: 'That name is taken and the PIN does not match.' };
+      }
+      return { ok: true, created: false, key: accountKey(handle) };
+    },
+
     async recordGame(results) {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
         for (const r of results) {
-          if (!r.deviceId) continue;
+          if (!r.key) continue;
           await client.query(
             `INSERT INTO player_stats
                (device_id, name, games, wins, rounds, total_score, best_score, exact_bids, busts, tricks, updated_at)
@@ -233,7 +319,7 @@ async function createPgStore() {
                busts       = player_stats.busts + EXCLUDED.busts,
                tricks      = player_stats.tricks + EXCLUDED.tricks,
                updated_at  = now()`,
-            [r.deviceId, r.name, r.won ? 1 : 0, r.rounds || 0, r.score || 0,
+            [r.key, r.name, r.won ? 1 : 0, r.rounds || 0, r.score || 0,
               r.exactBids || 0, r.busts || 0, r.tricks || 0],
           );
         }
@@ -249,10 +335,10 @@ async function createPgStore() {
       const { rows } = await pool.query('SELECT * FROM player_stats WHERE games > 0');
       return rank(rows.map(fromRow)).slice(0, limit);
     },
-    async player(deviceId) {
+    async player(key) {
       const { rows } = await pool.query('SELECT * FROM player_stats WHERE games > 0');
       const all = rank(rows.map(fromRow));
-      const idx = all.findIndex((x) => x.deviceId === deviceId);
+      const idx = all.findIndex((x) => x.key === key);
       if (idx === -1) return null;
       return { ...all[idx], rank: idx + 1, of: all.length };
     },

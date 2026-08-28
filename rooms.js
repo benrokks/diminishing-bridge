@@ -5,13 +5,14 @@
 import { randomUUID } from 'node:crypto';
 import { Game } from './game.js';
 import { MIN_PLAYERS, MAX_PLAYERS } from './engine.js';
+import { PERSONA_NAMES, personaFor, replyTo, oneOf } from './personas.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 confusion
 const ROOM_IDLE_MS = 10 * 60 * 1000;   // empty rooms are swept after this
 
-// Names for bot seats, so a padded table doesn't read as "Bot1, Bot2, Bot3".
-const BOT_NAMES = ['Ada', 'Bruno', 'Cleo', 'Dmitri', 'Esme',
-  'Felix', 'Greta', 'Hugo', 'Iris'];
+// Bot seats take the names of the cast in personas.js, so a padded table does
+// not read as "Bot1, Bot2, Bot3" and each seat plays and talks in character.
+const BOT_NAMES = PERSONA_NAMES;
 
 // How often every live table is advanced. This is the granularity of every
 // server-driven transition (bot moves, trick pauses, round rollover), so it
@@ -61,10 +62,32 @@ export class Room {
     this.chatSeq = 0;
     this.gamesPlayed = 0;
     this.recorded = false;
+    /** Host-set table rules and preferences, applied when the game starts. */
+    this.options = { blindBonus: false, botChat: true };
+    this.botQueue = [];   // [{ at, playerId, text }] — bots type, they don't teleport
     this.game = new Game({
       onChange: () => this.broadcast(),
       onEvent: (e) => this.onGameEvent(e),
     });
+  }
+
+  startGame(byPlayerId) {
+    this.requireHost(byPlayerId);
+    // Rules are frozen into the game as it starts, so nothing can change mid-hand.
+    this.game.options = { blindBonus: !!this.options.blindBonus };
+    this.game.start();
+    if (this.options.blindBonus) {
+      this.pushSystemChat('Table rule ON: on the single-card round, bid 1 and take it for 21 points.');
+    }
+    if (this.options.botChat) {
+      for (const p of this.game.players) {
+        if (!p.fill) continue;
+        if (Math.random() < 0.5) {
+          this.queueBotLine(p, oneOf(personaFor(p.voice || p.name).lines.start),
+            600 + Math.random() * 3000);
+        }
+      }
+    }
   }
 
   onGameEvent(e) {
@@ -77,6 +100,15 @@ export class Room {
           .then(() => this.pushSystemChat(
             `Game ${this.gamesPlayed} recorded to the all-time standings.`))
           .catch((err) => console.error('standings: record failed —', err.message));
+      }
+    }
+    if (e.kind === 'roundEnd' && this.options.botChat && Array.isArray(e.results)) {
+      for (const res of e.results) {
+        const p = this.game.bySeat(res.seat);
+        if (!p || !p.fill || Math.random() > 0.3) continue;
+        const lines = personaFor(p.voice || p.name).lines;
+        this.queueBotLine(p, oneOf(res.gained >= 10 ? lines.won : lines.lost),
+          800 + Math.random() * 3200);
       }
     }
     this.broadcastEvent(e);
@@ -102,6 +134,61 @@ export class Room {
     if (this.chat.length > CHAT_HISTORY) this.chat.shift();
     this.lastActivity = Date.now();
     for (const [, ws] of this.sockets) this.send(ws, { t: 'chat', msg });
+    if (!p.fill) this.botsRespondTo(body, p.id);
+  }
+
+  /**
+   * Bots reply on a delay so the lobby reads like people talking rather than
+   * a wall of instant output. Queued here, drained by tickChat().
+   */
+  queueBotLine(player, text, delay) {
+    if (!text || !this.options.botChat) return;
+    this.botQueue.push({
+      at: Date.now() + Math.max(200, delay || 1200),
+      playerId: player.id,
+      text,
+    });
+  }
+
+  /** A person said something: let one or two bots answer, in character. */
+  botsRespondTo(text, fromPlayerId) {
+    if (!this.options.botChat) return;
+    const bots = this.game.players.filter((p) => p.fill && p.id !== fromPlayerId);
+    if (!bots.length) return;
+    // Not everyone chimes in every time, or it becomes noise.
+    const shuffled = bots.slice().sort(() => Math.random() - 0.5);
+    const howMany = Math.random() < 0.45 ? 1 : (Math.random() < 0.75 ? 2 : 0);
+    for (let i = 0; i < howMany && i < shuffled.length; i++) {
+      const bot = shuffled[i];
+      this.queueBotLine(bot, replyTo(personaFor(bot.voice || bot.name), text),
+        900 + Math.random() * 2600 + i * 1400);
+    }
+  }
+
+  /** Say a line from every bot that has one due. Called on the room tick. */
+  tickChat() {
+    if (!this.botQueue.length) return;
+    const now = Date.now();
+    const due = this.botQueue.filter((q) => q.at <= now);
+    if (!due.length) return;
+    this.botQueue = this.botQueue.filter((q) => q.at > now);
+    for (const q of due) {
+      const p = this.game.byId(q.playerId);
+      if (!p || !p.fill) continue;   // the bot was removed while it was "typing"
+      const msg = {
+        id: ++this.chatSeq,
+        from: p.name,
+        playerId: p.id,
+        seat: p.seat,
+        text: q.text,
+        system: false,
+        bot: true,
+        t: now,
+      };
+      this.chat.push(msg);
+      if (this.chat.length > CHAT_HISTORY) this.chat.shift();
+      for (const [, ws] of this.sockets) this.send(ws, { t: 'chat', msg });
+    }
   }
 
   pushSystemChat(text) {
@@ -147,13 +234,21 @@ export class Room {
   }
 
   seatBot() {
-    this.game.addPlayer({
+    const name = this.botName();
+    const persona = personaFor(name);
+    const p = this.game.addPlayer({
       id: randomUUID(),
-      name: this.botName(),
+      name,
       token: null,
       deviceId: null, // bots never reach the standings
       fill: true,
     });
+    // Card-play tilt: nerve, temper, showman. See personas.js.
+    p.persona = { nerve: persona.nerve, temper: persona.temper, showman: persona.showman };
+    p.voice = name;
+    if (this.options.botChat) {
+      this.queueBotLine(p, oneOf(persona.lines.seated), 700 + Math.random() * 2200);
+    }
   }
 
   addBot(byPlayerId) {
@@ -174,6 +269,18 @@ export class Room {
     } else if (!this.game.dropOneBot()) {
       throw new Error('There are no bots to remove');
     }
+    this.lastActivity = Date.now();
+  }
+
+  /** Host toggles for optional table rules and bot chatter. */
+  setRule(byPlayerId, rule, on) {
+    this.requireHost(byPlayerId);
+    if (this.game.status !== 'lobby') throw new Error('Rules are set before the game starts');
+    if (!Object.prototype.hasOwnProperty.call(this.options, rule)) {
+      throw new Error('Unknown rule');
+    }
+    this.options[rule] = !!on;
+    if (rule === 'botChat' && !on) this.botQueue = [];
     this.lastActivity = Date.now();
   }
 
@@ -250,6 +357,7 @@ export class Room {
           bots: this.botCount,
           minPlayers: MIN_PLAYERS,
           maxPlayers: MAX_PLAYERS,
+          options: { ...this.options },
         },
         game: this.game.viewFor(pid),
       });
@@ -340,7 +448,8 @@ export class RoomManager {
 
   tickAll() {
     for (const room of this.rooms.values()) {
-      try { room.game.tick(); } catch (err) { console.error('tick error', room.code, err); }
+      try { room.game.tick(); room.tickChat(); }
+      catch (err) { console.error('tick error', room.code, err); }
     }
   }
 

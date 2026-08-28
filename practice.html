@@ -119,6 +119,18 @@ button, input { font: inherit; color: inherit; }
 .panel-head h2 { margin: 0; font-size: 17px; }
 .hint { color: var(--text-faint); font-size: 12.5px; margin: 0; }
 
+/* Whether standings actually survive a server restart — the host either has a
+   database attached or it does not, and the player deserves to know which. */
+.storage-state { margin-top: 10px; padding: 8px 10px; border-radius: 8px; }
+.storage-state.durable {
+  color: #a7e8bd; background: rgba(43, 160, 90, 0.13);
+  border: 1px solid rgba(43, 160, 90, 0.32);
+}
+.storage-state.fragile {
+  color: #f2c98a; background: rgba(200, 130, 30, 0.13);
+  border: 1px solid rgba(200, 130, 30, 0.34);
+}
+
 .room-list { display: flex; flex-direction: column; gap: 8px; }
 .room-row {
   display: flex; align-items: center; gap: 12px;
@@ -791,6 +803,56 @@ button, input { font: inherit; color: inherit; }
   }
 }
 
+/* ---------------------------- account box ---------------------------- */
+.acct-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.acct-row input {
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; outline: none; min-width: 0;
+}
+.acct-row #acctName { flex: 2 1 130px; }
+.acct-row #acctPin { flex: 1 1 90px; letter-spacing: .2em; }
+.acct-row input:focus { border-color: var(--accent); }
+.acct-signed { color: var(--good) !important; font-weight: 700; }
+
+/* --------------------- leading, made unmissable ---------------------- */
+.lead-banner {
+  display: none; align-items: center; gap: 10px;
+  border-radius: 12px; padding: 11px 14px; margin-bottom: 14px;
+  font-weight: 800; font-size: 15px; letter-spacing: .01em;
+}
+.lead-banner.show { display: flex; }
+.lead-banner.you {
+  background: linear-gradient(90deg, #123a22, #16301f);
+  border: 1.5px solid var(--good); color: #b6f2c4;
+  animation: leadPulse 1.8s ease-in-out infinite;
+}
+.lead-banner.them {
+  background: var(--bg-input); border: 1px solid var(--line);
+  color: var(--text-dim); font-weight: 600; font-size: 13.5px;
+}
+.lead-banner .icon { font-size: 19px; line-height: 1; }
+.lead-banner .sub {
+  display: block; font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,.72); margin-top: 2px;
+}
+@keyframes leadPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(63,185,80,.35); }
+  50%      { box-shadow: 0 0 0 7px rgba(63,185,80,0); }
+}
+
+/* Your seat, when you are the one opening the round */
+.seat.is-leader .avatar { border-color: var(--good); }
+.seat .badge.lead.you-lead {
+  background: #123a22; color: #b6f2c4; border-color: var(--good);
+  font-size: 10px; padding: 3px 10px;
+}
+
+/* Bots in chat read differently from people */
+.chat-msg.bot .who { color: var(--gold); }
+
+.you-lead-inline { color: #b6f2c4; font-weight: 800; }
+.bid-dock .bd-title { display: flex; align-items: center; gap: 8px; }
+
 /* practice-only tweaks */
 #practicePanel select {
   width: 100%;
@@ -904,6 +966,27 @@ button, input { font: inherit; color: inherit; }
       <div id="roomList" class="room-list"><p class="empty">Looking for tables…</p></div>
     </div>
 
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Your all-time record</h2>
+        <span class="hint" id="acctState">not signed in</span>
+      </div>
+      <p class="hint" style="margin-bottom:12px">
+        Claim a name with a PIN and your record follows you to any device or
+        browser. Without it, stats only live in this browser.
+      </p>
+      <div class="acct-row">
+        <input id="acctName" maxlength="14" placeholder="Name" autocomplete="username" />
+        <input id="acctPin" maxlength="8" inputmode="numeric" placeholder="PIN"
+               autocomplete="current-password" type="password" />
+        <button id="btnSignIn" class="btn primary">Sign in</button>
+        <button id="btnSignOut" class="btn ghost" style="display:none">Sign out</button>
+      </div>
+      <p class="hint" id="acctHint" style="margin-top:9px">
+        First time with a name claims it. 4–8 digits.
+      </p>
+    </div>
+
     <div class="panel online-only">
       <div class="panel-head">
         <h2>All-time standings</h2>
@@ -911,8 +994,7 @@ button, input { font: inherit; color: inherit; }
       </div>
       <div id="myStats" class="my-stats"></div>
       <div id="leaderboard" class="leaderboard"><p class="empty">No games recorded yet.</p></div>
-      <p class="hint" style="margin-top:10px">Your record is tied to this browser, not your
-        nickname, so nobody can take it by copying your name.</p>
+      <p class="hint storage-state" id="storageState">Checking how standings are stored…</p>
     </div>
 
     <details class="panel rules">
@@ -949,6 +1031,21 @@ button, input { font: inherit; color: inherit; }
           <button id="btnFillBots" class="btn tiny">Fill empty seats with bots</button>
         </div>
         <p class="hint" id="botHint"></p>
+      </div>
+
+      <div id="ruleControls" class="bot-controls">
+        <div class="bc-head">Table rules</div>
+        <label class="checkline">
+          <input type="checkbox" id="ruleBlindBonus" />
+          <span><b>Big round of one.</b> On the single-card round only, bid 1 and
+            take it for <b>21 points</b> instead of 11. Rewards nerve and keeps
+            comebacks alive.</span>
+        </label>
+        <label class="checkline">
+          <input type="checkbox" id="ruleBotChat" checked />
+          <span><b>Bot trash talk.</b> Bots chat in the lobby and between rounds,
+            in character. Some of them swear a great deal.</span>
+        </label>
       </div>
 
       <div class="btn-row">
@@ -1015,6 +1112,7 @@ button, input { font: inherit; color: inherit; }
              be able to see your cards while deciding what to bid. -->
         <div id="bidOverlay" class="overlay felt-only">
           <div class="bid-card">
+            <div id="leadBanner" class="lead-banner"></div>
             <h2>Place your bid</h2>
             <p id="bidSub" class="hint"></p>
             <div id="bidButtons" class="bid-buttons"></div>
@@ -1225,8 +1323,13 @@ function trickWinner(plays, trumpSuit) {
  *   over  the bid   -> 1 point per trick taken
  *   under the bid   -> 0
  */
-function scoreRound(bid, tricksWon) {
-  if (tricksWon === bid) return 10 + bid;
+function scoreRound(bid, tricksWon, { blindBonus = false } = {}) {
+  if (tricksWon === bid) {
+    // Optional table rule, single-card round only: calling 1 and taking it
+    // pays 20 + bid instead of 10 + bid. A deliberate comeback lever.
+    if (blindBonus && bid === 1) return 20 + bid;
+    return 10 + bid;
+  }
   if (tricksWon > bid) return tricksWon;
   return 0;
 }
@@ -1242,6 +1345,177 @@ function sortHand(hand, trumpSuit) {
     if (d !== 0) return d;
     return b.rank - a.rank;
   });
+}
+
+</script>
+<script>
+/* ================== personas.js (verbatim) ================== */
+/**
+ * personas.js — the bot cast.
+ *
+ * Two jobs. First, card-play tilt, so nine bots don't run one identical
+ * policy: `nerve` shifts bidding, `temper` is how far from the book they will
+ * wander, `showman` is their taste for leading big cards early.
+ *
+ * Second, a voice. Bots chat in the lobby and between rounds. Chat on this
+ * site is unfiltered by the owner's explicit decision, and some of these
+ * characters swear heavily. Note the line: they are rude about the cards, the
+ * game and themselves. Nothing here targets anyone's race, sex, religion or
+ * any other characteristic, and nothing is sexual — that is not squeamishness,
+ * it is the difference between a foul-mouthed card player and abuse aimed at a
+ * stranger who just joined a public table. Hosts can turn bot chat off.
+ */
+
+const P = (name, traits, lines) => ({ name, ...traits, lines });
+
+/** @returns a random element, or '' for an empty pool. */
+function oneOf(list) {
+  if (!list || !list.length) return '';
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+const PERSONAS = [
+  P('Ada', { nerve: -0.1, temper: 0.18, showman: 0.35 }, {
+    seated: ['Seat taken. Deal when ready.',
+      'Evening. I count cards, I do not apologise for it.',
+      'Ada. I will be quiet and then I will take your tricks.'],
+    reply: ['Mm.', 'Noted.', 'We will see.',
+      'That is a lot of confidence for someone who has not bid yet.',
+      'Talk is not a trick.'],
+    start: ['Right. Let us be serious.', 'Cards.'],
+    won: ['As expected.', 'That was always going to happen.'],
+    lost: ['Hm. Miscounted.', 'Fine. Noted for next round.'],
+  }),
+
+  P('Bruno', { nerve: 0.55, temper: 0.6, showman: 0.9 }, {
+    seated: ['BRUNO IS HERE. Start weeping.',
+      'Alright you beautiful bastards, who is losing money tonight?',
+      'Sat down. Immediately regret nothing.'],
+    reply: ['Shut up and deal.', 'Big words from a small hand.',
+      'Mate, I have seen better bidding from a chair.',
+      'You are going to eat those words and I am going to enjoy watching.',
+      'Absolute nonsense. Love it.'],
+    start: ['LETS GO.', 'Deal the cards before I start chewing the table.'],
+    won: ['GET IN.', 'Called it. Called the whole thing.',
+      'That is what happens. That is exactly what happens.'],
+    lost: ['Oh you are JOKING.', 'What in the name of god was that deal.',
+      'Rigged. Absolutely rigged. Deal again.'],
+  }),
+
+  P('Cleo', { nerve: 0.15, temper: 0.3, showman: 0.55 }, {
+    seated: ['Cleo. I will be taking your points, thank you.',
+      'Oh good, an audience.', 'Hello. Sorry in advance.'],
+    reply: ['Cute.', 'Is that your strategy or your excuse?',
+      'You say that every round.', 'Bless.',
+      'I will remember you said that.'],
+    start: ['Lovely. Let us begin the humiliation.'],
+    won: ['Obviously.', 'Was there ever any doubt?'],
+    lost: ['Ugh. Fine. Enjoy it while it lasts.'],
+  }),
+
+  P('Dmitri', { nerve: -0.35, temper: 0.4, showman: 0.2 }, {
+    seated: ['Dmitri. I expect nothing and I am still disappointed.',
+      'I have a bad feeling about this deck.',
+      'Hello. I will lose slowly, with dignity.'],
+    reply: ['Everything ends badly, this is just faster.',
+      'Optimism. In this economy.', 'You will regret that.',
+      'Hm. That is the sort of thing people say before it all goes wrong.'],
+    start: ['Here we go again.'],
+    won: ['I am as surprised as you are.', 'Do not get used to it.'],
+    lost: ['Of course. Naturally. Obviously.', 'I knew it the moment I saw my hand.'],
+  }),
+
+  P('Esme', { nerve: 0.05, temper: 0.5, showman: 0.6 }, {
+    seated: ['hiii! good luck everyone!! 🙂',
+      'Esme here! I am so bad at this, it will be fun!',
+      'oh lovely, a full table!'],
+    reply: ['haha yes!!', 'oh no really?', 'you are so right',
+      'wait what does that mean', 'good luck!! (not really) (yes really)'],
+    start: ['ok ok ok here we go!!'],
+    won: ['I DID IT', 'oh my god it worked'],
+    lost: ['whoops!', 'oh dear. oh well!'],
+  }),
+
+  P('Felix', { nerve: 0.8, temper: 0.85, showman: 0.95 }, {
+    seated: ['Felix. I have never made a safe bid in my life.',
+      'Right, who wants to lose their shirt.',
+      'I am going to bid something stupid and you are all going to watch.'],
+    reply: ['Bold. Wrong, but bold.', 'That is the most sensible thing said all night, so obviously I disagree.',
+      'Do it. Go on. Bid it. I dare you.',
+      'Hell yes.', 'Terrible plan. I am fully behind it.'],
+    start: ['No guts, no glory. Mostly no guts.'],
+    won: ['HA. Told you. Told you all.', 'Reckless and correct, my favourite combination.'],
+    lost: ['Worth it.', 'I regret nothing and I have learned nothing.'],
+  }),
+
+  P('Greta', { nerve: 0.35, temper: 0.25, showman: 0.75 }, {
+    seated: ['Greta. Forty years of this shit and I still hate losing.',
+      'Sit down, shut up, play cards.',
+      'If any of you lead a low trump I am going home.'],
+    reply: ['That is the stupidest fucking thing I have heard all week.',
+      'Christ almighty. Just play the card.',
+      'No. Wrong. Absolutely not.',
+      'You lot bid like you have never seen a deck before.',
+      'I have shoes older than your card sense.'],
+    start: ['Finally. Deal the bloody things.'],
+    won: ['Damn right.', 'That is how it is done, you shower of amateurs.'],
+    lost: ['Oh piss off.', 'What an absolute shitshow of a hand.',
+      'Whoever shuffled that deck owes me money.'],
+  }),
+
+  P('Hugo', { nerve: -0.55, temper: 0.35, showman: 0.15 }, {
+    seated: ['Hi! Sorry, I am not very good at this.',
+      'Hugo. Please be gentle.',
+      'Hello everyone! Hope I do not hold you up.'],
+    reply: ['Oh! Sorry.', 'That is a good point actually.',
+      'I was going to say the same thing but I was not sure.',
+      'Sorry, is it my turn? Sorry.', 'Right, yes, of course.'],
+    start: ['Ok. Deep breath.'],
+    won: ['Oh! That was lucky.', 'Sorry! Sorry. Did not mean to.'],
+    lost: ['Ah. Yes. That was my fault.', 'Sorry everyone.'],
+  }),
+
+  P('Iris', { nerve: 0.25, temper: 0.55, showman: 0.4 }, {
+    seated: ['Iris.',
+      'I am not here to make friends.',
+      'Someone at this table is about to have a very bad round.'],
+    reply: ['Interesting.', 'Keep talking.', 'Wrong.',
+      'You are going to bid three and take one. I can feel it.',
+      'Mhm.'],
+    start: ['Good.'],
+    won: ['Yes.', 'Thought so.'],
+    lost: ['Noted.', 'That will not happen twice.'],
+  }),
+];
+
+const byName = new Map(PERSONAS.map((p) => [p.name, p]));
+
+function personaFor(name) {
+  return byName.get(name) || PERSONAS[0];
+}
+
+const PERSONA_NAMES = PERSONAS.map((p) => p.name);
+
+/**
+ * A bot's reply to something a person said. A few keywords get a pointed
+ * answer; everything else draws from the character's general pool.
+ */
+function replyTo(persona, text) {
+  const t = String(text || '').toLowerCase();
+  if (/\b(hi|hey|hello|yo|sup|hiya)\b/.test(t)) {
+    return oneOf([...persona.lines.seated, ...persona.lines.reply]);
+  }
+  if (/\b(good luck|gl|have fun)\b/.test(t)) {
+    return oneOf(['Luck is for people without a plan.', 'You will need it more than me.',
+      ...persona.lines.reply]);
+  }
+  if (/\b(ready|start|go|deal)\b/.test(t)) {
+    return oneOf([...persona.lines.start, ...persona.lines.reply]);
+  }
+  if (/\?$/.test(t.trim())) {
+    return oneOf(['Probably.', 'No idea.', 'Ask me after the round.', ...persona.lines.reply]);
+  }
+  return oneOf(persona.lines.reply);
 }
 
 </script>
@@ -1283,6 +1557,8 @@ class Game {
     this.onEvent = onEvent || (() => {});
 
     this.status = 'lobby'; // lobby | playing | finished
+    /** Optional table rules, set from the lobby before the game starts. */
+    this.options = { blindBonus: false };
     this.players = [];     // seat order == array order
     this.schedule = [];
     this.roundIndex = -1;
@@ -1299,11 +1575,12 @@ class Game {
    *        to a legal size. Deliberately distinct from `isBot`, which also gets
    *        set when a real player times out and may still reclaim their seat.
    */
-  addPlayer({ id, name, token, deviceId, fill = false }) {
+  addPlayer({ id, name, token, statsKey = null, fill = false }) {
     if (this.status !== 'lobby') throw new Error('Game already in progress');
     if (this.players.length >= MAX_PLAYERS) throw new Error('Table is full');
     const player = {
-      id, name, token, deviceId: deviceId || null,
+      id, name, token,
+      statsKey: statsKey || null,   // which all-time record this seat feeds
       fill,
       seat: this.players.length,
       connected: true,
@@ -1489,9 +1766,9 @@ class Game {
   gameSummary() {
     const best = Math.max(...this.players.map((p) => p.score));
     return this.players
-      .filter((p) => p.deviceId)
+      .filter((p) => p.statsKey)
       .map((p) => ({
-        deviceId: p.deviceId,
+        key: p.statsKey,
         name: p.name,
         score: p.score,
         won: p.score === best,
@@ -1649,8 +1926,9 @@ class Game {
     const r = this.round;
     r.phase = 'roundEnd';
     r.deadline = Date.now() + TIMERS.roundEnd;
+    const blindBonus = !!(this.options.blindBonus && r.blind);
     r.results = this.players.map((p) => {
-      const gained = scoreRound(p.bid, p.tricksWon);
+      const gained = scoreRound(p.bid, p.tricksWon, { blindBonus });
       p.score += gained;
       p.roundScores.push(gained);
       p.tricks += p.tricksWon;
@@ -1745,8 +2023,42 @@ class Game {
 
   // --------------------------------------------------------------------- bot
 
+  /**
+   * Personality. Without this every bot ran the same deterministic policy, so
+   * a leading bot holding the ace of trump led it every single time — correct,
+   * and completely readable. Each bot now has its own tilt, and choices are
+   * drawn from a weighted distribution rather than taken as an argmax.
+   *
+   *   nerve      how far above a sober count they bid
+   *   temper     randomness in card choice — 0 plays the book, high improvises
+   *   showman    fondness for leading big cards early
+   */
+  persona(p) {
+    return p.persona || { nerve: 0, temper: 0.35, showman: 0.5 };
+  }
+
+  /** Weighted pick. `temper` 0 collapses to the best-scoring option. */
+  static pick(scored, temper) {
+    if (!scored.length) return null;
+    if (temper <= 0.001) {
+      return scored.reduce((a, b) => (b.score > a.score ? b : a)).card;
+    }
+    const top = Math.max(...scored.map((s) => s.score));
+    // Exponential weighting: better options stay likelier, but nothing is
+    // ever guaranteed, so the table cannot read a bot's hand from its habits.
+    const weights = scored.map((s) => Math.exp((s.score - top) / (12 * temper)));
+    const total = weights.reduce((a, b) => a + b, 0);
+    let roll = Math.random() * total;
+    for (let i = 0; i < scored.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) return scored[i].card;
+    }
+    return scored[scored.length - 1].card;
+  }
+
   botBid(p) {
     const r = this.round;
+    const ps = this.persona(p);
     let expect = 0;
     for (const c of p.hand) {
       const isTrump = r.trumpSuit && c.suit === r.trumpSuit;
@@ -1754,6 +2066,16 @@ class Game {
       else if (c.rank === 14) expect += 0.85;
       else if (c.rank === 13) expect += 0.5;
       else if (c.rank === 12) expect += 0.25;
+    }
+    // Personal tilt, plus jitter so identical hands don't always bid the same.
+    expect += ps.nerve;
+    expect += (Math.random() - 0.5) * (0.5 + ps.temper);
+
+    // On the blind round nobody can see their card, so it is a coin flip with
+    // a personality: bold bots call one, cautious ones sit at zero.
+    if (r.blind) {
+      const bold = 0.3 + ps.nerve * 0.35 + (this.options.blindBonus ? 0.25 : 0);
+      return Math.random() < bold ? 1 : 0;
     }
     return Math.max(0, Math.min(r.cardsPerHand, Math.round(expect)));
   }
@@ -1765,26 +2087,64 @@ class Game {
     const legal = legalPlays(p.hand, led);
     if (legal.length === 1) return legal[0];
 
+    const ps = this.persona(p);
     const need = p.bid - p.tricksWon;
+    const left = p.hand.length;
     const wantsTricks = need > 0;
+    const desperate = need >= left;          // must win everything from here
+    const done = need <= 0;                  // already at or past the bid
+
+    const isTrump = (c) => !!(r.trumpSuit && c.suit === r.trumpSuit);
 
     if (!led) {
-      // Leading: push a high card when chasing tricks, otherwise dump low.
-      const sorted = legal.slice().sort((a, b) => b.rank - a.rank);
-      return wantsTricks ? sorted[0] : sorted[sorted.length - 1];
+      /**
+       * Leading. Rather than "highest card if chasing", score every option and
+       * sample. Top trumps stay the strongest play when a bot genuinely needs
+       * tricks, but it will also open with a middling card, or hold the ace
+       * back a round, the way a person does.
+       */
+      const scored = legal.map((c) => {
+        let s;
+        if (desperate) {
+          s = c.rank + (isTrump(c) ? 30 : 0);        // no time to be clever
+        } else if (wantsTricks) {
+          s = c.rank * 0.8 + (isTrump(c) ? 14 : 0);
+          // Showmen fire the big guns early; the coy keep them for later.
+          if (c.rank >= 13) s += (ps.showman - 0.5) * 16;
+          if (isTrump(c) && c.rank >= 13 && left > 2) s -= (1 - ps.showman) * 10;
+        } else {
+          s = (15 - c.rank) + (isTrump(c) ? -12 : 0); // shed safely
+        }
+        return { card: c, score: s };
+      });
+      return Game.pick(scored, ps.temper);
     }
 
-    const current = trickWinner(r.trick, r.trumpSuit);
     const beats = (c) => {
       const test = r.trick.concat([{ seat: p.seat, card: c }]);
       return trickWinner(test, r.trumpSuit).seat === p.seat;
     };
-    const winning = legal.filter(beats).sort((a, b) => a.rank - b.rank);
-    const losing = legal.filter((c) => !beats(c)).sort((a, b) => a.rank - b.rank);
+    const lastToPlay = r.trick.length === this.players.length - 1;
 
-    if (wantsTricks && winning.length) return winning[0];       // win as cheaply as possible
-    if (!wantsTricks && losing.length) return losing[losing.length - 1]; // dump the biggest safe card
-    return (losing[0] || winning[0] || legal[0]);
+    const scored = legal.map((c) => {
+      const wins = beats(c);
+      let s;
+      if (wantsTricks) {
+        // Take it, as cheaply as possible; a wasted high card is a real cost.
+        s = wins ? 40 - c.rank * 0.9 : 6 - c.rank * 0.4;
+        if (wins && isTrump(c) && !isTrump(r.trick[0].card) && !lastToPlay) {
+          s -= (1 - ps.showman) * 8;      // trumping in early is a commitment
+        }
+        if (desperate && wins) s += 25;
+      } else {
+        // Ducking. Throw the biggest card that cannot win, but not so blindly
+        // that everyone can read the hand off it.
+        s = wins ? -30 + (done ? -10 : 0) : 12 + c.rank * 0.5;
+        if (!wins && isTrump(c)) s -= 8;  // hold trump back when not chasing
+      }
+      return { card: c, score: s };
+    });
+    return Game.pick(scored, ps.temper);
   }
 
   // ------------------------------------------------------------------- views
@@ -1924,7 +2284,11 @@ class Game {
         id: 'bot' + i, name: BOT_NAMES[i - 1] || ('Bot' + i),
         token: 'bot' + i, deviceId: null,
       });
-      this.game.players[i].isBot = true;
+      var seat = this.game.players[i];
+      seat.isBot = true;
+      // Same cast as the online game: each bot plays with its own tilt.
+      var per = personaFor(BOT_NAMES[i - 1] || 'Ada');
+      seat.persona = { nerve: per.nerve, temper: per.temper, showman: per.showman };
     }
 
     this.timer = setInterval(function () {
@@ -2178,6 +2542,43 @@ class Game {
     finished: false,
   };
 
+  /* ----------------------------------------------------------- account
+     A claimed name + PIN makes an all-time record follow the player to any
+     device. Without it, stats are tied to this browser only. */
+  let account = null;
+
+  function savedAccount() {
+    try { return JSON.parse(localStorage.getItem('db_acct') || 'null'); } catch { return null; }
+  }
+  function rememberAccount(name, pin) {
+    try { localStorage.setItem('db_acct', JSON.stringify({ name, pin })); } catch { /* ignore */ }
+  }
+  function forgetAccount() {
+    try { localStorage.removeItem('db_acct'); } catch { /* ignore */ }
+  }
+
+  function renderAccount() {
+    const state$ = $('acctState');
+    const out = $('btnSignOut');
+    const inn = $('btnSignIn');
+    if (!state$) return;
+    if (account) {
+      state$.textContent = `signed in as ${account}`;
+      state$.className = 'hint acct-signed';
+      inn.textContent = 'Switch';
+      out.style.display = '';
+      $('acctHint').textContent =
+        'Your record follows this name on any device. Sign in with the same name and PIN anywhere.';
+    } else {
+      state$.textContent = 'not signed in';
+      state$.className = 'hint';
+      inn.textContent = 'Sign in';
+      out.style.display = 'none';
+      $('acctHint').textContent =
+        'First time with a name claims it. 4–8 digits. Without this, stats stay in this browser.';
+    }
+  }
+
   // ------------------------------------------------------------- socket
   function connect() {
     // Practice mode runs the identical server logic inside this page instead
@@ -2193,6 +2594,10 @@ class Game {
 
     ws.onopen = () => {
       reconnectDelay = 800;
+      const saved = savedAccount();
+      if (saved && saved.name && saved.pin) {
+        sendMsg({ t: 'signIn', name: saved.name, pin: saved.pin });
+      }
       if (currentScreen() === 'screen-landing') {
         sendMsg({ t: 'watchLobby' });
         requestBoard();
@@ -2219,6 +2624,7 @@ class Game {
 
   function onMessage(m) {
     switch (m.t) {
+      case 'hello': renderStorageState(m.standings); break;
       case 'rooms': renderRoomList(m.rooms); break;
       case 'joined': myId = m.playerId; chatMsgs = []; break;
       case 'left':
@@ -2231,7 +2637,15 @@ class Game {
       case 'event': onEvent(m); break;
       case 'chatHistory': chatMsgs = m.msgs || []; renderChat(); break;
       case 'chat': pushChat(m.msg); break;
-      case 'leaderboard': renderLeaderboard(m.rows, m.mine); break;
+      case 'leaderboard':
+        if (m.account !== undefined) { account = m.account; renderAccount(); }
+        renderLeaderboard(m.rows, m.mine);
+        break;
+      case 'account':
+        account = m.handle;
+        renderAccount();
+        if (m.handle) toast(m.created ? `Name claimed — welcome, ${m.handle}` : `Signed in as ${m.handle}`);
+        break;
       case 'state':
         room = m.room;
         state = m.game;
@@ -2415,6 +2829,11 @@ class Game {
     // Host-only seating controls.
     const bc = $('botControls');
     bc.classList.toggle('show', isHost);
+    const rc = $('ruleControls');
+    rc.classList.toggle('show', isHost);
+    const opts = room.options || {};
+    $('ruleBlindBonus').checked = !!opts.blindBonus;
+    $('ruleBotChat').checked = opts.botChat !== false;
     if (isHost) {
       const picker = $('sizePicker');
       picker.innerHTML = '';
@@ -2567,6 +2986,9 @@ class Game {
       if (isTurn) el.classList.add('active');
       if (tookIt) el.classList.add('winner');
       if (isMe) el.classList.add('me', 'is-me');
+      if (r && r.leadSeat === p.seat && (r.phase === 'bidding' || r.phase === 'bidReveal')) {
+        el.classList.add('is-leader');
+      }
       if (!p.connected) el.classList.add('offline');
       if (r && r.bidsRevealed) {
         if (p.tricksWon === p.bid) el.classList.add('bid-hit');
@@ -2580,7 +3002,9 @@ class Game {
       if (tookIt) badge = '<div class="badge took">took it</div>';
       else if (isTurn) badge = `<div class="badge turn">${isMe ? 'your turn' : 'to play'}</div>`;
       else if (r && (r.phase === 'bidding' || r.phase === 'bidReveal') && r.leadSeat === p.seat) {
-        badge = `<div class="badge lead">${isMe ? 'you lead' : 'leads first'}</div>`;
+        badge = isMe
+          ? '<div class="badge lead you-lead">▶ you lead</div>'
+          : '<div class="badge lead">leads first</div>';
       } else if (r && r.phase === 'playing' && r.leadSeat === p.seat && !r.trick.length) {
         badge = '<div class="badge lead">leads</div>';
       } else if (r && r.phase === 'playing' && r.leadSeat === p.seat) {
@@ -3055,6 +3479,29 @@ class Game {
   }
 
   // ------------------------------------------------------------- bidding
+
+  /**
+   * Whether you open the round is the single biggest thing shaping a bid, so
+   * it gets a banner rather than a clause in a sentence.
+   */
+  function paintLeadBanner(r) {
+    const el = $('leadBanner');
+    if (!el) return '';
+    const leader = state.players.find((p) => p.seat === r.leadSeat);
+    if (!leader) { el.className = 'lead-banner'; el.innerHTML = ''; return ''; }
+    const iLead = !!(state.you && leader.seat === state.you.seat);
+    if (iLead) {
+      el.className = 'lead-banner show you';
+      el.innerHTML = '<span class="icon">▶</span><span>YOU LEAD THIS ROUND' +
+        '<span class="sub">You choose the first card. Nobody sets the suit for you.</span></span>';
+    } else {
+      el.className = 'lead-banner show them';
+      el.innerHTML = `<span class="icon">▶</span><span><b>${esc(leader.name)}</b> leads this round` +
+        '<span class="sub">They open; you follow their suit if you can.</span></span>';
+    }
+    return iLead;
+  }
+
   function bidButtonsInto(box, maxBid) {
     if (box.childElementCount === maxBid + 1) return;
     box.innerHTML = '';
@@ -3110,7 +3557,9 @@ class Game {
           `<div class="bid-buttons" id="bidDockButtons"></div>`;
       }
       $('bidDockSub').innerHTML =
-        leadLine +
+        (iLead
+          ? '<span class="you-lead-inline">▶ YOU LEAD THIS ROUND.</span> '
+          : leadLine) +
         `Every other player's card is face up on the table. Yours is not. ` +
         (r.noTrump ? 'No trump this round. ' : `${SUIT_SYMBOL[r.trumpSuit]} ${SUIT_NAMES[r.trumpSuit]} is trump. `) +
         `${already} of ${state.players.length} have bid · ${clock}`;
@@ -3120,6 +3569,7 @@ class Game {
 
     dock.classList.remove('show');
     show(ov);
+    paintLeadBanner(r);
 
     if (state.yourBid !== null) {
       $('bidButtons').innerHTML = '';
@@ -3252,6 +3702,24 @@ class Game {
     input.value = '';
   }
 
+  // Say plainly whether this server keeps standings forever or only until it
+  // next restarts. Free hosts with no disk do the latter, and the difference
+  // is invisible until a week of records vanishes.
+  function renderStorageState(s) {
+    const el = $('storageState');
+    if (!el || !s) return;
+    el.classList.remove('durable', 'fragile');
+    if (s.durable) {
+      el.classList.add('durable');
+      el.textContent = 'Standings are saved to a database — they survive restarts. '
+        + 'Sign in above and your record follows you to any device.';
+    } else {
+      el.classList.add('fragile');
+      el.textContent = 'Heads up: this server has no database attached, so standings '
+        + 'reset whenever it restarts or sleeps. Games still play normally.';
+    }
+  }
+
   // -------------------------------------------------------- leaderboard
   function requestBoard() {
     sendMsg({ t: 'leaderboard', deviceId });
@@ -3367,6 +3835,34 @@ class Game {
 
   // leaderboard
   $('btnRefreshBoard').onclick = requestBoard;
+
+  // account
+  (function wireAccount() {
+    const saved = savedAccount();
+    if (saved && saved.name) $('acctName').value = saved.name;
+    $('btnSignIn').onclick = () => {
+      const name = $('acctName').value.trim();
+      const pin = $('acctPin').value.trim();
+      if (!name || name.length < 2) return toast('Pick a name of at least two characters.');
+      if (!/^\d{4,8}$/.test(pin)) return toast('PIN must be 4 to 8 digits.');
+      rememberAccount(name, pin);
+      sendMsg({ t: 'signIn', name, pin });
+      $('acctPin').value = '';
+    };
+    $('btnSignOut').onclick = () => {
+      forgetAccount();
+      sendMsg({ t: 'signOut' });
+      toast('Signed out. Stats will stay in this browser.');
+    };
+    $('acctPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSignIn').click(); });
+    renderAccount();
+  })();
+
+  // table rules (host only; the server rejects anyone else)
+  $('ruleBlindBonus').onchange = (e) =>
+    sendMsg({ t: 'setRule', rule: 'blindBonus', on: e.target.checked });
+  $('ruleBotChat').onchange = (e) =>
+    sendMsg({ t: 'setRule', rule: 'botChat', on: e.target.checked });
 
   // Prefill a code from an invite link.
   const urlCode = new URLSearchParams(location.search).get('code');

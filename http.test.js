@@ -105,3 +105,47 @@ test('a websocket table can be created against the deployed server', async () =>
   assert.match(code, /^[A-Z0-9]{4}$/, 'expected a four-character table code');
   ws.close();
 });
+
+/**
+ * A free host with no disk keeps standings only until it next sleeps. The
+ * server has to say which of the two it is doing, because from the outside the
+ * difference is invisible right up until a fortnight of records disappears.
+ */
+test('the health check reports how standings are stored', async () => {
+  const res = await fetch(base + '/healthz');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  assert.ok(['file', 'postgres'].includes(body.standings), `unknown backend ${body.standings}`);
+  assert.equal(body.durable, body.standings === 'postgres',
+    'durable must mean exactly "a database is attached"');
+});
+
+test('with no DATABASE_URL the server admits standings are not durable', async () => {
+  const env = { ...process.env, PORT: String(PORT + 1), NODE_ENV: 'production',
+    DBRIDGE_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'dbridge-nodb-')) };
+  delete env.DATABASE_URL;
+  const child = spawn(process.execPath, [path.join(here, 'server.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('server did not start')), 10000);
+      child.stdout.on('data', (d) => d.toString().includes('listening') && (clearTimeout(t), resolve()));
+    });
+    const body = await (await fetch(`http://127.0.0.1:${PORT + 1}/healthz`)).json();
+    assert.deepEqual(body, { ok: true, standings: 'file', durable: false });
+
+    // The browser learns the same thing on connect, so it can warn the player.
+    const { WebSocket } = await import('ws');
+    const ws = new WebSocket(`ws://127.0.0.1:${PORT + 1}/ws`);
+    const hello = await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('no hello')), 8000);
+      ws.on('message', (raw) => {
+        const m = JSON.parse(raw.toString());
+        if (m.t === 'hello') { clearTimeout(t); resolve(m); }
+      });
+      ws.on('error', reject);
+    });
+    assert.deepEqual(hello.standings, { backend: 'file', durable: false });
+    ws.close();
+  } finally { child.kill(); }
+});

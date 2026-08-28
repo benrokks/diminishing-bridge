@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 import { RoomManager, sanitizeName } from './rooms.js';
 import { MIN_PLAYERS, MAX_PLAYERS } from './engine.js';
-import { createStore } from './store.js';
+import { createStore, deviceKey, normaliseHandle, validPin } from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -54,7 +54,15 @@ for (const [route, file] of Object.entries(CLIENT_FILES)) {
   });
 }
 
-app.get('/healthz', (_req, res) => res.type('text').send('ok'));
+// The health check doubles as the answer to "are my standings actually being
+// kept?" On a free host with no disk the file backend silently forgets
+// everything on each spin-down, and there is otherwise no way to tell from
+// outside. `store` is initialised below, long before any request arrives.
+app.get('/healthz', (_req, res) => res.json({
+  ok: true,
+  standings: store.kind,
+  durable: store.kind === 'postgres',
+}));
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
@@ -66,7 +74,7 @@ app.get('/api/leaderboard', async (_req, res) => {
   try {
     const rows = await store.leaderboard(25);
     // Same rule as the websocket path: device ids are credentials, never public.
-    res.json(rows.map(({ deviceId, ...pub }) => pub));
+    res.json(rows.map(({ key, ...pub }) => pub));
   } catch { res.status(500).json([]); }
 });
 
@@ -109,7 +117,11 @@ wss.on('connection', (ws, req) => {
 
   ws.on('pong', () => { ws.isAlive = true; });
 
-  send(ws, { t: 'hello', limits: { min: MIN_PLAYERS, max: MAX_PLAYERS } });
+  send(ws, {
+    t: 'hello',
+    limits: { min: MIN_PLAYERS, max: MAX_PLAYERS },
+    standings: { backend: store.kind, durable: store.kind === 'postgres' },
+  });
 
   ws.on('message', (raw) => {
     const now = Date.now();
@@ -143,6 +155,13 @@ function cleanDeviceId(raw) {
   return /^[A-Za-z0-9_-]{8,64}$/.test(s) ? s : null;
 }
 
+/** Which standings record this socket writes to: a claimed account, or its browser. */
+function statsKeyFor(ws, deviceId) {
+  if (ws.accountKey) return ws.accountKey;
+  const clean = cleanDeviceId(deviceId) || ws.deviceId;
+  return clean ? deviceKey(clean) : null;
+}
+
 function joinRoom(ws, room, name, deviceId) {
   if (room.game.status !== 'lobby') throw new Error('That game has already started');
   // A real person always outranks a bot: if the table was padded to full,
@@ -156,7 +175,7 @@ function joinRoom(ws, room, name, deviceId) {
     id: playerId,
     name: sanitizeName(name),
     token: ws.token,
-    deviceId: ws.deviceId,
+    statsKey: statsKeyFor(ws, deviceId),
   });
   if (!room.hostId) room.hostId = playerId;
   ws.roomCode = room.code;
@@ -189,6 +208,36 @@ function handle(ws, m) {
       return;
     }
 
+    case 'signIn': {
+      const handle = normaliseHandle(m.name);
+      if (handle.length < 2) throw new Error('Pick a name of at least two characters');
+      if (!validPin(m.pin)) throw new Error('PIN must be 4 to 8 digits');
+      if (typeof store.claim !== 'function') throw new Error('Sign-in is unavailable');
+      Promise.resolve(store.claim(handle, String(m.pin)))
+        .then((res) => {
+          if (!res.ok) return send(ws, { t: 'error', msg: res.reason });
+          ws.accountKey = res.key;
+          ws.accountHandle = handle;
+          send(ws, { t: 'account', handle, created: !!res.created });
+          return store.player(res.key).then((mine) =>
+            store.leaderboard(25).then((rows) => send(ws, {
+              t: 'leaderboard',
+              rows: rows.map((r) => ({ ...r, key: undefined, isMe: r.key === res.key })),
+              mine: mine ? { ...mine, key: undefined } : null,
+              account: handle,
+            })));
+        })
+        .catch((err) => send(ws, { t: 'error', msg: err.message || 'Sign-in failed' }));
+      return;
+    }
+
+    case 'signOut': {
+      ws.accountKey = null;
+      ws.accountHandle = null;
+      send(ws, { t: 'account', handle: null });
+      return;
+    }
+
     case 'quickPlay': {
       const room = manager.quickPlay(ws.ip);
       joinRoom(ws, room, m.name, m.deviceId);
@@ -196,16 +245,18 @@ function handle(ws, m) {
     }
 
     case 'leaderboard': {
-      const device = cleanDeviceId(m.deviceId);
-      Promise.all([store.leaderboard(25), device ? store.player(device) : null])
+      if (m.deviceId) ws.deviceId = cleanDeviceId(m.deviceId) || ws.deviceId;
+      const key = statsKeyFor(ws, m.deviceId);
+      Promise.all([store.leaderboard(25), key ? store.player(key) : null])
         .then(([rows, mine]) => send(ws, {
           t: 'leaderboard',
           // A device id is the ONLY thing that identifies a player's record,
           // and it is client-supplied, so it must never be broadcast — anyone
           // who learned yours could claim your standings. Strip it and mark
           // the viewer's own row with a flag instead.
-          rows: rows.map((r) => ({ ...r, deviceId: undefined, isMe: !!device && r.deviceId === device })),
-          mine: mine ? { ...mine, deviceId: undefined } : null,
+          rows: rows.map((r) => ({ ...r, key: undefined, isMe: !!key && r.key === key })),
+          mine: mine ? { ...mine, key: undefined } : null,
+          account: ws.accountHandle || null,
         }))
         .catch(() => send(ws, { t: 'leaderboard', rows: [], mine: null }));
       return;
@@ -228,8 +279,13 @@ function handle(ws, m) {
       switch (m.t) {
         case 'start':
           if (room.hostId !== ws.playerId) throw new Error('Only the host can start');
-          room.game.start();
+          room.startGame(ws.playerId);
           pushLobby();
+          return;
+
+        case 'setRule':
+          room.setRule(ws.playerId, String(m.rule), !!m.on);
+          room.broadcast();
           return;
 
         case 'bid':

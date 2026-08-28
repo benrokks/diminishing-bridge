@@ -182,10 +182,12 @@ while (Date.now() - started < 240000) {
     }
   }
   // The blind round plays itself — capture it, then let the server run it.
-  if (info.blind.includes('hidden from you') && !info.bidDock && info.trickSlots > 0
-      && !fs.existsSync(path.join(OUT, '17-practice-blind.png'))) {
-    await page.screenshot({ path: path.join(OUT, '17-practice-blind.png') });
+  if (info.blind.includes('hidden from you') && !info.bidDock && info.trickSlots > 0) {
+    // Reaching this state at all proves nobody had to click a hidden card.
     blindAutoplayed = true;
+    if (!fs.existsSync(path.join(OUT, '17-practice-blind.png'))) {
+      await page.screenshot({ path: path.join(OUT, '17-practice-blind.png') });
+    }
   }
   if (info.playable > 0) {
     await page.click('#hand .card.playable');

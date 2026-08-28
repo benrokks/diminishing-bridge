@@ -129,6 +129,43 @@
     finished: false,
   };
 
+  /* ----------------------------------------------------------- account
+     A claimed name + PIN makes an all-time record follow the player to any
+     device. Without it, stats are tied to this browser only. */
+  let account = null;
+
+  function savedAccount() {
+    try { return JSON.parse(localStorage.getItem('db_acct') || 'null'); } catch { return null; }
+  }
+  function rememberAccount(name, pin) {
+    try { localStorage.setItem('db_acct', JSON.stringify({ name, pin })); } catch { /* ignore */ }
+  }
+  function forgetAccount() {
+    try { localStorage.removeItem('db_acct'); } catch { /* ignore */ }
+  }
+
+  function renderAccount() {
+    const state$ = $('acctState');
+    const out = $('btnSignOut');
+    const inn = $('btnSignIn');
+    if (!state$) return;
+    if (account) {
+      state$.textContent = `signed in as ${account}`;
+      state$.className = 'hint acct-signed';
+      inn.textContent = 'Switch';
+      out.style.display = '';
+      $('acctHint').textContent =
+        'Your record follows this name on any device. Sign in with the same name and PIN anywhere.';
+    } else {
+      state$.textContent = 'not signed in';
+      state$.className = 'hint';
+      inn.textContent = 'Sign in';
+      out.style.display = 'none';
+      $('acctHint').textContent =
+        'First time with a name claims it. 4–8 digits. Without this, stats stay in this browser.';
+    }
+  }
+
   // ------------------------------------------------------------- socket
   function connect() {
     // Practice mode runs the identical server logic inside this page instead
@@ -144,6 +181,10 @@
 
     ws.onopen = () => {
       reconnectDelay = 800;
+      const saved = savedAccount();
+      if (saved && saved.name && saved.pin) {
+        sendMsg({ t: 'signIn', name: saved.name, pin: saved.pin });
+      }
       if (currentScreen() === 'screen-landing') {
         sendMsg({ t: 'watchLobby' });
         requestBoard();
@@ -170,6 +211,7 @@
 
   function onMessage(m) {
     switch (m.t) {
+      case 'hello': renderStorageState(m.standings); break;
       case 'rooms': renderRoomList(m.rooms); break;
       case 'joined': myId = m.playerId; chatMsgs = []; break;
       case 'left':
@@ -182,7 +224,15 @@
       case 'event': onEvent(m); break;
       case 'chatHistory': chatMsgs = m.msgs || []; renderChat(); break;
       case 'chat': pushChat(m.msg); break;
-      case 'leaderboard': renderLeaderboard(m.rows, m.mine); break;
+      case 'leaderboard':
+        if (m.account !== undefined) { account = m.account; renderAccount(); }
+        renderLeaderboard(m.rows, m.mine);
+        break;
+      case 'account':
+        account = m.handle;
+        renderAccount();
+        if (m.handle) toast(m.created ? `Name claimed — welcome, ${m.handle}` : `Signed in as ${m.handle}`);
+        break;
       case 'state':
         room = m.room;
         state = m.game;
@@ -366,6 +416,11 @@
     // Host-only seating controls.
     const bc = $('botControls');
     bc.classList.toggle('show', isHost);
+    const rc = $('ruleControls');
+    rc.classList.toggle('show', isHost);
+    const opts = room.options || {};
+    $('ruleBlindBonus').checked = !!opts.blindBonus;
+    $('ruleBotChat').checked = opts.botChat !== false;
     if (isHost) {
       const picker = $('sizePicker');
       picker.innerHTML = '';
@@ -518,6 +573,9 @@
       if (isTurn) el.classList.add('active');
       if (tookIt) el.classList.add('winner');
       if (isMe) el.classList.add('me', 'is-me');
+      if (r && r.leadSeat === p.seat && (r.phase === 'bidding' || r.phase === 'bidReveal')) {
+        el.classList.add('is-leader');
+      }
       if (!p.connected) el.classList.add('offline');
       if (r && r.bidsRevealed) {
         if (p.tricksWon === p.bid) el.classList.add('bid-hit');
@@ -531,7 +589,9 @@
       if (tookIt) badge = '<div class="badge took">took it</div>';
       else if (isTurn) badge = `<div class="badge turn">${isMe ? 'your turn' : 'to play'}</div>`;
       else if (r && (r.phase === 'bidding' || r.phase === 'bidReveal') && r.leadSeat === p.seat) {
-        badge = `<div class="badge lead">${isMe ? 'you lead' : 'leads first'}</div>`;
+        badge = isMe
+          ? '<div class="badge lead you-lead">▶ you lead</div>'
+          : '<div class="badge lead">leads first</div>';
       } else if (r && r.phase === 'playing' && r.leadSeat === p.seat && !r.trick.length) {
         badge = '<div class="badge lead">leads</div>';
       } else if (r && r.phase === 'playing' && r.leadSeat === p.seat) {
@@ -1006,6 +1066,29 @@
   }
 
   // ------------------------------------------------------------- bidding
+
+  /**
+   * Whether you open the round is the single biggest thing shaping a bid, so
+   * it gets a banner rather than a clause in a sentence.
+   */
+  function paintLeadBanner(r) {
+    const el = $('leadBanner');
+    if (!el) return '';
+    const leader = state.players.find((p) => p.seat === r.leadSeat);
+    if (!leader) { el.className = 'lead-banner'; el.innerHTML = ''; return ''; }
+    const iLead = !!(state.you && leader.seat === state.you.seat);
+    if (iLead) {
+      el.className = 'lead-banner show you';
+      el.innerHTML = '<span class="icon">▶</span><span>YOU LEAD THIS ROUND' +
+        '<span class="sub">You choose the first card. Nobody sets the suit for you.</span></span>';
+    } else {
+      el.className = 'lead-banner show them';
+      el.innerHTML = `<span class="icon">▶</span><span><b>${esc(leader.name)}</b> leads this round` +
+        '<span class="sub">They open; you follow their suit if you can.</span></span>';
+    }
+    return iLead;
+  }
+
   function bidButtonsInto(box, maxBid) {
     if (box.childElementCount === maxBid + 1) return;
     box.innerHTML = '';
@@ -1061,7 +1144,9 @@
           `<div class="bid-buttons" id="bidDockButtons"></div>`;
       }
       $('bidDockSub').innerHTML =
-        leadLine +
+        (iLead
+          ? '<span class="you-lead-inline">▶ YOU LEAD THIS ROUND.</span> '
+          : leadLine) +
         `Every other player's card is face up on the table. Yours is not. ` +
         (r.noTrump ? 'No trump this round. ' : `${SUIT_SYMBOL[r.trumpSuit]} ${SUIT_NAMES[r.trumpSuit]} is trump. `) +
         `${already} of ${state.players.length} have bid · ${clock}`;
@@ -1071,6 +1156,7 @@
 
     dock.classList.remove('show');
     show(ov);
+    paintLeadBanner(r);
 
     if (state.yourBid !== null) {
       $('bidButtons').innerHTML = '';
@@ -1203,6 +1289,24 @@
     input.value = '';
   }
 
+  // Say plainly whether this server keeps standings forever or only until it
+  // next restarts. Free hosts with no disk do the latter, and the difference
+  // is invisible until a week of records vanishes.
+  function renderStorageState(s) {
+    const el = $('storageState');
+    if (!el || !s) return;
+    el.classList.remove('durable', 'fragile');
+    if (s.durable) {
+      el.classList.add('durable');
+      el.textContent = 'Standings are saved to a database — they survive restarts. '
+        + 'Sign in above and your record follows you to any device.';
+    } else {
+      el.classList.add('fragile');
+      el.textContent = 'Heads up: this server has no database attached, so standings '
+        + 'reset whenever it restarts or sleeps. Games still play normally.';
+    }
+  }
+
   // -------------------------------------------------------- leaderboard
   function requestBoard() {
     sendMsg({ t: 'leaderboard', deviceId });
@@ -1318,6 +1422,34 @@
 
   // leaderboard
   $('btnRefreshBoard').onclick = requestBoard;
+
+  // account
+  (function wireAccount() {
+    const saved = savedAccount();
+    if (saved && saved.name) $('acctName').value = saved.name;
+    $('btnSignIn').onclick = () => {
+      const name = $('acctName').value.trim();
+      const pin = $('acctPin').value.trim();
+      if (!name || name.length < 2) return toast('Pick a name of at least two characters.');
+      if (!/^\d{4,8}$/.test(pin)) return toast('PIN must be 4 to 8 digits.');
+      rememberAccount(name, pin);
+      sendMsg({ t: 'signIn', name, pin });
+      $('acctPin').value = '';
+    };
+    $('btnSignOut').onclick = () => {
+      forgetAccount();
+      sendMsg({ t: 'signOut' });
+      toast('Signed out. Stats will stay in this browser.');
+    };
+    $('acctPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSignIn').click(); });
+    renderAccount();
+  })();
+
+  // table rules (host only; the server rejects anyone else)
+  $('ruleBlindBonus').onchange = (e) =>
+    sendMsg({ t: 'setRule', rule: 'blindBonus', on: e.target.checked });
+  $('ruleBotChat').onchange = (e) =>
+    sendMsg({ t: 'setRule', rule: 'botChat', on: e.target.checked });
 
   // Prefill a code from an invite link.
   const urlCode = new URLSearchParams(location.search).get('code');

@@ -111,6 +111,18 @@ button, input { font: inherit; color: inherit; }
 .panel-head h2 { margin: 0; font-size: 17px; }
 .hint { color: var(--text-faint); font-size: 12.5px; margin: 0; }
 
+/* Whether standings actually survive a server restart — the host either has a
+   database attached or it does not, and the player deserves to know which. */
+.storage-state { margin-top: 10px; padding: 8px 10px; border-radius: 8px; }
+.storage-state.durable {
+  color: #a7e8bd; background: rgba(43, 160, 90, 0.13);
+  border: 1px solid rgba(43, 160, 90, 0.32);
+}
+.storage-state.fragile {
+  color: #f2c98a; background: rgba(200, 130, 30, 0.13);
+  border: 1px solid rgba(200, 130, 30, 0.34);
+}
+
 .room-list { display: flex; flex-direction: column; gap: 8px; }
 .room-row {
   display: flex; align-items: center; gap: 12px;
@@ -782,3 +794,53 @@ button, input { font: inherit; color: inherit; }
     color: var(--text-dim); margin-top: 2px;
   }
 }
+
+/* ---------------------------- account box ---------------------------- */
+.acct-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.acct-row input {
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; outline: none; min-width: 0;
+}
+.acct-row #acctName { flex: 2 1 130px; }
+.acct-row #acctPin { flex: 1 1 90px; letter-spacing: .2em; }
+.acct-row input:focus { border-color: var(--accent); }
+.acct-signed { color: var(--good) !important; font-weight: 700; }
+
+/* --------------------- leading, made unmissable ---------------------- */
+.lead-banner {
+  display: none; align-items: center; gap: 10px;
+  border-radius: 12px; padding: 11px 14px; margin-bottom: 14px;
+  font-weight: 800; font-size: 15px; letter-spacing: .01em;
+}
+.lead-banner.show { display: flex; }
+.lead-banner.you {
+  background: linear-gradient(90deg, #123a22, #16301f);
+  border: 1.5px solid var(--good); color: #b6f2c4;
+  animation: leadPulse 1.8s ease-in-out infinite;
+}
+.lead-banner.them {
+  background: var(--bg-input); border: 1px solid var(--line);
+  color: var(--text-dim); font-weight: 600; font-size: 13.5px;
+}
+.lead-banner .icon { font-size: 19px; line-height: 1; }
+.lead-banner .sub {
+  display: block; font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,.72); margin-top: 2px;
+}
+@keyframes leadPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(63,185,80,.35); }
+  50%      { box-shadow: 0 0 0 7px rgba(63,185,80,0); }
+}
+
+/* Your seat, when you are the one opening the round */
+.seat.is-leader .avatar { border-color: var(--good); }
+.seat .badge.lead.you-lead {
+  background: #123a22; color: #b6f2c4; border-color: var(--good);
+  font-size: 10px; padding: 3px 10px;
+}
+
+/* Bots in chat read differently from people */
+.chat-msg.bot .who { color: var(--gold); }
+
+.you-lead-inline { color: #b6f2c4; font-weight: 800; }
+.bid-dock .bd-title { display: flex; align-items: center; gap: 8px; }

@@ -24,8 +24,8 @@ test('the Postgres backend creates its table and records a game', opts, async ()
   const tag = `pg-${Date.now()}`;
 
   await store.recordGame([
-    { deviceId: `${tag}-a`, name: 'Ben', score: 120, won: true, rounds: 9, exactBids: 6, busts: 2, tricks: 14 },
-    { deviceId: `${tag}-b`, name: 'Dana', score: 90, won: false, rounds: 9, exactBids: 3, busts: 4, tricks: 11 },
+    { key: `${tag}-a`, name: 'Ben', score: 120, won: true, rounds: 9, exactBids: 6, busts: 2, tricks: 14 },
+    { key: `${tag}-b`, name: 'Dana', score: 90, won: false, rounds: 9, exactBids: 3, busts: 4, tricks: 11 },
   ]);
 
   const a = await store.player(`${tag}-a`);
@@ -43,10 +43,10 @@ test('Postgres accumulates across games exactly like the file backend', opts, as
   const tag = `pg-acc-${Date.now()}`;
 
   await store.recordGame([
-    { deviceId: `${tag}-a`, name: 'Ben', score: 120, won: true, rounds: 9, exactBids: 6, busts: 2, tricks: 14 },
+    { key: `${tag}-a`, name: 'Ben', score: 120, won: true, rounds: 9, exactBids: 6, busts: 2, tricks: 14 },
   ]);
   await store.recordGame([
-    { deviceId: `${tag}-a`, name: 'Ben Renamed', score: 80, won: false, rounds: 9, exactBids: 3, busts: 3, tricks: 9 },
+    { key: `${tag}-a`, name: 'Ben Renamed', score: 80, won: false, rounds: 9, exactBids: 3, busts: 3, tricks: 9 },
   ]);
 
   const a = await store.player(`${tag}-a`);
@@ -68,8 +68,8 @@ test('Postgres accumulates across games exactly like the file backend', opts, as
 test('a lower score in a later game does not lower bestScore', opts, async () => {
   const store = await freshStore();
   const tag = `pg-best-${Date.now()}`;
-  await store.recordGame([{ deviceId: `${tag}-a`, name: 'X', score: 200, won: true, rounds: 9 }]);
-  await store.recordGame([{ deviceId: `${tag}-a`, name: 'X', score: 10, won: false, rounds: 9 }]);
+  await store.recordGame([{ key: `${tag}-a`, name: 'X', score: 200, won: true, rounds: 9 }]);
+  await store.recordGame([{ key: `${tag}-a`, name: 'X', score: 10, won: false, rounds: 9 }]);
   const a = await store.player(`${tag}-a`);
   assert.equal(a.bestScore, 200);
   await store.close();
@@ -80,8 +80,8 @@ test('players with no device id are skipped without failing the transaction', op
   const store = await freshStore();
   const tag = `pg-skip-${Date.now()}`;
   await store.recordGame([
-    { deviceId: null, name: 'Ghost', score: 50, won: true, rounds: 9 },
-    { deviceId: `${tag}-real`, name: 'Real', score: 60, won: false, rounds: 9 },
+    { key: null, name: 'Ghost', score: 50, won: true, rounds: 9 },
+    { key: `${tag}-real`, name: 'Real', score: 60, won: false, rounds: 9 },
   ]);
   const real = await store.player(`${tag}-real`);
   assert.ok(real, 'the valid player was lost when an invalid one was in the batch');
@@ -93,8 +93,8 @@ test('players with no device id are skipped without failing the transaction', op
 test('the leaderboard ranks by wins then average score', opts, async () => {
   const store = await freshStore();
   const tag = `pg-rank-${Date.now()}`;
-  await store.recordGame([{ deviceId: `${tag}-lo`, name: 'Lo', score: 50, won: false, rounds: 9 }]);
-  await store.recordGame([{ deviceId: `${tag}-hi`, name: 'Hi', score: 300, won: true, rounds: 9 }]);
+  await store.recordGame([{ key: `${tag}-lo`, name: 'Lo', score: 50, won: false, rounds: 9 }]);
+  await store.recordGame([{ key: `${tag}-hi`, name: 'Hi', score: 300, won: true, rounds: 9 }]);
 
   // Rank via player(), which scans the whole table. leaderboard() only returns
   // the top N, and this database accumulates rows across runs — so asking
@@ -200,7 +200,8 @@ test('a full game played against a live server persists to Postgres', opts, asyn
   process.env.DATABASE_URL = URL;
   const store = await createStore();
   assert.equal(store.kind, 'postgres');
-  const row = await store.player(`${tag}-0`);
+  // The server namespaces browser records as dev:<id>.
+  const row = await store.player(`dev:${tag}-0`);
   assert.ok(row, 'the game was never written to Postgres');
   assert.equal(row.games, 1);
   assert.ok(row.rounds === 19, `expected a 19-round five-player game, got ${row.rounds}`);

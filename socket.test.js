@@ -15,9 +15,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 34567 + Math.floor(Math.random() * 500);
 
 function startServer() {
+  // DBRIDGE_DATA_DIR below asks for an isolated standings store; a stray
+  // DATABASE_URL in the shell would quietly override it with a shared one.
+  const env = { ...process.env };
+  delete env.DATABASE_URL;
   const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
     env: {
-      ...process.env,
+      ...env,
       PORT: String(PORT),
       DBRIDGE_BID_MS: '8000', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20',
       DBRIDGE_PLAY_MS: '8000',

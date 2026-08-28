@@ -26,6 +26,7 @@ function demodule(src) {
 
 const engine = demodule(read('engine.js'));
 const game = demodule(read('game.js'));
+const personas = demodule(read('personas.js'));
 const css = read('style.css');
 const appJs = read('app.js');
 const indexHtml = read('index.html');
@@ -139,7 +140,11 @@ const practiceShim = `
         id: 'bot' + i, name: BOT_NAMES[i - 1] || ('Bot' + i),
         token: 'bot' + i, deviceId: null,
       });
-      this.game.players[i].isBot = true;
+      var seat = this.game.players[i];
+      seat.isBot = true;
+      // Same cast as the online game: each bot plays with its own tilt.
+      var per = personaFor(BOT_NAMES[i - 1] || 'Ada');
+      seat.persona = { nerve: per.nerve, temper: per.temper, showman: per.showman };
     }
 
     this.timer = setInterval(function () {
@@ -306,6 +311,10 @@ var process = { env: {} };
 <script>
 /* =================== engine.js (verbatim) =================== */
 ${engine}
+</script>
+<script>
+/* ================== personas.js (verbatim) ================== */
+${personas}
 </script>
 <script>
 /* ==================== game.js (verbatim) ==================== */

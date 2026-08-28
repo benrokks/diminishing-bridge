@@ -25,15 +25,15 @@ test('the file store accumulates career stats and ranks players', async () => {
   assert.equal(store.kind, 'file');
 
   await store.recordGame([
-    { deviceId: 'dev-a', name: 'Ben', score: 120, won: true, rounds: 9, exactBids: 6, busts: 2, tricks: 14 },
-    { deviceId: 'dev-b', name: 'Dana', score: 90, won: false, rounds: 9, exactBids: 3, busts: 4, tricks: 11 },
+    { key: 'dev-a', name: 'Ben', score: 120, won: true, rounds: 9, exactBids: 6, busts: 2, tricks: 14 },
+    { key: 'dev-b', name: 'Dana', score: 90, won: false, rounds: 9, exactBids: 3, busts: 4, tricks: 11 },
   ]);
   await store.recordGame([
-    { deviceId: 'dev-a', name: 'Ben', score: 80, won: false, rounds: 9, exactBids: 3, busts: 3, tricks: 9 },
-    { deviceId: 'dev-b', name: 'Dana', score: 140, won: true, rounds: 9, exactBids: 7, busts: 1, tricks: 16 },
+    { key: 'dev-a', name: 'Ben', score: 80, won: false, rounds: 9, exactBids: 3, busts: 3, tricks: 9 },
+    { key: 'dev-b', name: 'Dana', score: 140, won: true, rounds: 9, exactBids: 7, busts: 1, tricks: 16 },
   ]);
   await store.recordGame([
-    { deviceId: 'dev-b', name: 'Dana', score: 200, won: true, rounds: 9, exactBids: 8, busts: 0, tricks: 18 },
+    { key: 'dev-b', name: 'Dana', score: 200, won: true, rounds: 9, exactBids: 8, busts: 0, tricks: 18 },
   ]);
 
   const a = await store.player('dev-a');
@@ -48,9 +48,9 @@ test('the file store accumulates career stats and ranks players', async () => {
   assert.equal(a.accuracy, 0.5);
 
   const board = await store.leaderboard(10);
-  assert.equal(board[0].deviceId, 'dev-b', 'more wins should rank first');
+  assert.equal(board[0].key, 'dev-b', 'more wins should rank first');
   assert.equal(board[0].wins, 2);
-  assert.equal(board[1].deviceId, 'dev-a');
+  assert.equal(board[1].key, 'dev-a');
   assert.equal(a.rank, 2);
   assert.equal(a.of, 2);
 
@@ -73,8 +73,8 @@ test('players without a device id are skipped rather than recorded as one blob',
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dbridge-store-'));
   const store = await createStore({ dir });
   await store.recordGame([
-    { deviceId: null, name: 'Ghost', score: 50, won: true, rounds: 9 },
-    { deviceId: '', name: 'Ghost2', score: 40, won: false, rounds: 9 },
+    { key: null, name: 'Ghost', score: 50, won: true, rounds: 9 },
+    { key: '', name: 'Ghost2', score: 40, won: false, rounds: 9 },
   ]);
   assert.deepEqual(await store.leaderboard(10), []);
   await store.close();
@@ -87,7 +87,7 @@ test('per-game counters track exact bids, busts and tricks', () => {
   Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
   const game = new Game();
   for (let i = 0; i < 10; i++) {
-    game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, deviceId: `d${i}` });
+    game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, statsKey: `dev:d${i}` });
   }
   game.players.forEach((p) => { p.isBot = true; });
   game.start();
@@ -100,7 +100,7 @@ test('per-game counters track exact bids, busts and tricks', () => {
   for (const row of rows) {
     assert.equal(row.rounds, totalRounds);
     // Every round is either hit, over, or under.
-    const p = game.players.find((x) => x.deviceId === row.deviceId);
+    const p = game.players.find((x) => x.statsKey === row.key);
     const overs = totalRounds - p.exactBids - p.busts;
     assert.ok(overs >= 0, 'round outcomes do not add up');
     assert.equal(row.exactBids + row.busts + overs, totalRounds);
@@ -119,7 +119,7 @@ test('rematch keeps everyone seated and wipes the scores', () => {
   Object.assign(TIMERS, { bidding: 0, bidReveal: 0, autoPlay: 0, playing: 0, trickEnd: 0, roundEnd: 0, botDelay: 0 });
   const game = new Game();
   for (let i = 0; i < 5; i++) {
-    game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, deviceId: `d${i}` });
+    game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, statsKey: `dev:d${i}` });
   }
   game.players.forEach((p) => { p.isBot = true; });
   game.start();
@@ -152,7 +152,7 @@ test('rematch keeps everyone seated and wipes the scores', () => {
 test('rematch drops players who disconnected and renumbers the seats', () => {
   const game = new Game();
   for (let i = 0; i < 6; i++) {
-    game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, deviceId: `d${i}` });
+    game.addPlayer({ id: `p${i}`, name: `P${i}`, token: `t${i}`, statsKey: `dev:d${i}` });
   }
   game.players.forEach((p) => { p.isBot = true; });
   game.start();
@@ -173,9 +173,13 @@ test('rematch drops players who disconnected and renumbers the seats', () => {
 const PORT = 35800 + Math.floor(Math.random() * 400);
 
 function startServer(extraEnv = {}) {
+  // DBRIDGE_DATA_DIR below asks for an isolated standings store; a stray
+  // DATABASE_URL in the shell would quietly override it with a shared one.
+  const env = { ...process.env };
+  delete env.DATABASE_URL;
   const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
     env: {
-      ...process.env,
+      ...env,
       PORT: String(PORT),
       DBRIDGE_BID_MS: '8000', DBRIDGE_REVEAL_MS: '20', DBRIDGE_AUTOPLAY_MS: '20', DBRIDGE_PLAY_MS: '8000',
       DBRIDGE_TRICK_MS: '20', DBRIDGE_ROUND_MS: '40', DBRIDGE_BOT_MS: '10', DBRIDGE_TICK_MS: '8',

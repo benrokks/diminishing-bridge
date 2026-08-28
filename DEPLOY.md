@@ -147,7 +147,35 @@ free Postgres expires 30 days after you create it, so don't use that one.
    see `standings: using JSON file`, the connection string is wrong — check for
    a missing character at either end.
 
-The `player_stats` table is created automatically on first boot. Nothing to run.
+The `player_stats` and `player_accounts` tables are created automatically on
+first boot. There is no SQL to run and nothing to click in Neon.
+
+### How to check it worked
+
+You do not have to read the deploy log. The site says so itself:
+
+- Open your site. The **All-time standings** panel ends with a coloured line.
+  Green *"Standings are saved to a database — they survive restarts"* means you
+  are done. Amber *"this server has no database attached"* means `DATABASE_URL`
+  is missing or wrong.
+- Or visit `https://your-app.onrender.com/healthz`, which answers
+  `{"ok":true,"standings":"postgres","durable":true}` when the database is
+  attached, and `"standings":"file","durable":false` when it is not.
+
+The definitive test: finish a game, wait 20 minutes for the instance to sleep,
+come back and check the leaderboard still has your row.
+
+### Standings and signing in are two different things
+
+They solve different halves of the same problem and you want both:
+
+- **`DATABASE_URL`** decides whether records survive the server restarting.
+- **Signing in** (name + PIN on the landing page) decides whether a record
+  follows *you* between your phone, your laptop and other people's browsers.
+  Without it a record is tied to one browser.
+
+Neither substitutes for the other. Signing in on a server with no database
+still loses everything at the next spin-down.
 
 ---
 
@@ -263,7 +291,11 @@ Create a fresh one.
 and the seat goes to a bot after two misses. Slow it down with `DBRIDGE_BID_MS`
 and `DBRIDGE_PLAY_MS` in Render's Environment tab (milliseconds).
 
-**Standings keep resetting.** No `DATABASE_URL`. See Step 5.
+**Standings keep resetting.** No `DATABASE_URL`. Check `/healthz` — if it says
+`"durable":false`, that is the whole answer. See Step 5.
+
+**Standings survive, but mine are gone on my phone.** Different browser, so a
+different record. Sign in with the same name and PIN on both. See Step 5.
 
 **Service is suspended at the end of the month.** You've used the 750 free
 instance-hours. It comes back next month, or upgrade.
